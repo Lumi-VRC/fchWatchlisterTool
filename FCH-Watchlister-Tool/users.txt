@@ -1,3 +1,0 @@
-SampleUser1
-SampleUser2
-SampleUser3
