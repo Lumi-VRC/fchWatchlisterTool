@@ -5,3 +5,4 @@ This program:
 - Does some string manipulation to get the timestamp of each matching entry.
 - Displays matched usernames with their corresponding timestamps.
 - Optionally plays a sound when a watchlisted user joins your lobby.
+![Medal_fUWHjO6Rkr](https://github.com/user-attachments/assets/ea12703e-cf4b-40e6-b67f-5a04ab73acbb)
