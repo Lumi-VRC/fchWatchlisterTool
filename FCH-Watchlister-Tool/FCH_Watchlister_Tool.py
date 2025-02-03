@@ -102,32 +102,33 @@ def read_old_log_files(directory, users_file):
             update_ui(matches)  # Update the UI with old log file entries
     except Exception as e:
         print(f"Error reading old log files: {e}")
-
 def monitor_latest_log_file(directory, users_file):
     try:
-        last_checked_size = 0
+        last_checked_size = 0  # Initialize the size of the last checked file to 0
         latest_log_file = os.path.join(directory, get_sorted_log_files(directory)[-1])  # Get the latest log file
-        last_processed_line = ""
+        last_processed_line = ""  # Keep track of the last processed log entry
         
-        while True:
-            file_size = os.path.getsize(latest_log_file)
-            if file_size > last_checked_size:
+        while True:  # Continuously monitor the log file
+            file_size = os.path.getsize(latest_log_file)  # Get the current size of the log file
+            if file_size > last_checked_size:  # Check if the file has grown since last check
                 with open(latest_log_file, 'r', encoding='utf-8') as lfile:
-                    lfile.seek(last_checked_size)
-                    new_lines = lfile.readlines()
+                    lfile.seek(last_checked_size)  # Move to the point where last read ended
+                    new_lines = lfile.readlines()  # Read new lines added to the log file
                 
-                matches = []
-                play_sound = False
+                matches = []  # List to store matching log entries
+                play_sound = False  # Flag to determine if a sound should be played
                 with open(users_file, 'r', encoding='utf-8') as ufile:
-                    keywords = ufile.read().splitlines()
+                    keywords = ufile.read().splitlines()  # Read the keywords from users_file
                 
+                # Filter new log entries containing "OnPlayerJoined"
                 log_entries = [line for line in new_lines if "OnPlayerJoined" in line]
                 
                 for line in log_entries:
-                    if line != last_processed_line:
-                        last_processed_line = line
-                        for keyword in keywords:
+                    if line != last_processed_line:  # Ensure we don't process the same line again
+                        last_processed_line = line  # Update the last processed line
+                        for keyword in keywords:  # Check each keyword against the log entry
                             if keyword in line:
+                                # Extract and format the timestamp from the log entry
                                 timestamp = line[:19].strip()
                                 date, time_str = timestamp.split(' ')
                                 time_obj = datetime.strptime(time_str, "%H:%M:%S")
@@ -144,21 +145,23 @@ def monitor_latest_log_file(directory, users_file):
                                     relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
                                 else:
                                     relative_time = f"{int(minutes)} minutes ago"
+                                # Append the match details to the list
                                 matches.append(f'{keyword} - Date: {date}, Time: {time_12_hour}, {relative_time}')
                                 print(f"Match found: {keyword}")  # Debug statement
-                                play_sound = True
+                                play_sound = True  # Set the flag to play sound
                                 break
                 
                 if matches:
-                    update_ui(matches)
+                    update_ui(matches)  # Update the UI with new matches
                     if play_sound and not is_muted:
-                        playsound('sound.mp3')
+                        playsound('sound.mp3')  # Play sound if not muted
                 
-                last_checked_size = file_size
+                last_checked_size = file_size  # Update the last checked file size
             
-            time.sleep(2)
+            time.sleep(2)  # Wait for 2 seconds before checking the file again
     except Exception as e:
-        print(f"Error monitoring latest log file: {e}")
+        print(f"Error monitoring latest log file: {e}")  # Print any errors that occur
+
 
 def main():
     try:
@@ -169,6 +172,7 @@ def main():
         read_old_log_files(directory, users_file)
         load_users()
         
+        # Set up monitoring in another thread.
         monitoring_thread = threading.Thread(target=monitor_latest_log_file, args=(directory, users_file))
         monitoring_thread.daemon = True
         monitoring_thread.start()
