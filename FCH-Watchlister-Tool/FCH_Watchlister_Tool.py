@@ -154,7 +154,7 @@ def authenticate_vrchat():
 
 def authenticate_vrchat_continue(vrchat_username, vrchat_password):
     login_url = "https://api.vrchat.cloud/api/1/auth/user"
-    headers = {'User-Agent': 'FTACNameWatcher/1.0 (ftacmoderation@gmail.com)'}
+    headers = {'User-Agent': 'FCHWatchlister/1.0 (ftacmoderation@gmail.com)'}
 
     try:
         response = requests.get(login_url, auth=(vrchat_username, vrchat_password), headers=headers)
@@ -299,7 +299,7 @@ def update_usernames():
 # Function to get the display name from VRChat API
 def get_displayname(cookies, user_id):
     url = f"https://api.vrchat.cloud/api/1/users/{user_id}"
-    headers = {'User-Agent': 'FTACNameWatcher/1.0 (ftacmoderation@gmail.com)'}
+    headers = {'User-Agent': 'FCHWatchlister/1.0 (ftacmoderation@gmail.com)'}
 
     try:
         response = requests.get(url, cookies=cookies, headers=headers)
