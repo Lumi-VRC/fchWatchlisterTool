@@ -10,6 +10,8 @@ import threading
 from datetime import datetime
 from playsound import playsound
 
+# python -m PyInstaller --onefile --windowed FCH_Watchlister_Tool.py
+# Run the above command to package the program.
 # Ensure Tkinter root is initialized once
 root = tk.Tk()
 root.withdraw()  # Hide the root window
@@ -23,8 +25,6 @@ users_file = os.path.join(os.path.dirname(__file__), "users.json")
 sound = os.path.join(os.path.dirname(__file__), "sound.mp3")
 cookies_path = os.path.join(os.path.dirname(__file__), "session_cookies.json")
 login_path = os.path.join(os.path.dirname(__file__), "login.json")
-
-
 
 # Function to load settings.json
 def load_settings():
@@ -49,7 +49,6 @@ def load_settings():
             json.dump(settings, file, indent=4)
 
     return settings  # Return the cleaned settings dictionary
-
 
 settings = load_settings()  # Load settings from settings.json
 is_muted = settings.get("is_muted", False)  # Default to False if not found
@@ -81,11 +80,9 @@ def save_login(username, password):
         json.dump(credentials, file, indent=4)
 
 # Function to read mute state from JSON
-# Function to read mute state from settings.json
 def read_mute_state():
     settings = load_settings()  # Use the function that safely loads settings
     return settings.get("is_muted", False)  # Default to False if missing
-
 
 # Function to write mute state to JSON
 def write_mute_state(state):
@@ -97,14 +94,12 @@ def write_mute_state(state):
 
     print(f"Updated is_muted to {state} in settings.json")
 
-
 # Function to toggle mute state
 def toggle_mute():
     global is_muted
     is_muted = not is_muted
     mute_button.config(text="Unmute" if is_muted else "Mute")
     write_mute_state(is_muted)  # This should now be updated to use load_settings()
-
 
 # Authenticate VRChat
 # Function to extract user ID from a full VRChat URL or raw ID
@@ -125,9 +120,6 @@ def prompt_otp(title, message, callback):
             root.after(0, lambda: callback(otp))  # Continue authentication in the main thread
 
     root.after(0, ask_otp)  # Schedule OTP prompt in the main thread
-
-
-
 
 def authenticate_vrchat():
     # Load credentials from login.json
@@ -152,7 +144,6 @@ def authenticate_vrchat():
         return None  # Exit function and wait for credentials
 
     return authenticate_vrchat_continue(vrchat_username, vrchat_password)
-
 
 def authenticate_vrchat_continue(vrchat_username, vrchat_password):
     login_url = "https://api.vrchat.cloud/api/1/auth/user"
@@ -229,17 +220,16 @@ def authenticate_vrchat_continue(vrchat_username, vrchat_password):
         root.after(0, lambda: messagebox.showerror("Error", f"Error authenticating with VRChat API: {str(e)}"))
         return None
 
-
 # Function to save cookies
 def save_cookies(cookies):
-    with open(cookies_path, 'w') as f:  # Use the corrected path
+    with open(cookies_path, 'w') as f:
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
         json.dump(cookies_dict, f)
 
 # Function to load cookies
 def load_cookies():
     try:
-        with open(cookies_path, 'r') as f:  # Use the corrected path
+        with open(cookies_path, 'r') as f:
             cookies_dict = json.load(f)
             cookies = requests.cookies.RequestsCookieJar()
             for name, value in cookies_dict.items():
@@ -295,8 +285,6 @@ def update_usernames():
         # ✅ Refresh the user list UI
         root.after(0, load_users)  # Ensure UI updates correctly
 
-
-
 # Function to get the display name from VRChat API
 def get_displayname(cookies, user_id):
     url = f"https://api.vrchat.cloud/api/1/users/{user_id}"
@@ -349,7 +337,6 @@ def get_sorted_log_files(directory):
         return []
 
 # Function to compare files and find matches
-
 def compare_files(log_file):
     matches = []
     try:
@@ -409,7 +396,6 @@ def read_old_log_files(directory):
             update_ui(matches)  # ✅ Ensure UI updates with old matches
     except Exception as e:
         print(f"❌ Error reading old log files: {e}")
-
 
 # Function to monitor the latest log file for changes
 def monitor_latest_log_file(directory):
@@ -525,7 +511,6 @@ def load_users():
 
     return users_data  # ✅ Return dictionary for use elsewhere
 
-
 # Function to save users to JSON
 def extract_user_id(url_or_id):
     """Extracts the user ID from a full VRChat profile URL or returns the input if it's already an ID."""
@@ -551,7 +536,6 @@ def save_users():
 
     except Exception as e:
         print(f"❌ Error saving users: {e}")
-
 
 # Function to add new users from input fields
 def add_user():
@@ -580,8 +564,6 @@ def main():
         monitor_thread.start()
     except Exception as e:
         print(f"❌ Error in main function: {e}")
-
-
 
 # GUI Setup
 root = tk.Tk()
@@ -657,6 +639,3 @@ def on_closing():
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Run the main function automatically on startup
-main()
-
-root.mainloop()
