@@ -1,9 +1,76 @@
-This program:
-- Reads through all of and then watches your latest log file located in %APPDATA%/LocalLow/VRChat/VRChat/ on a different thread.
-- Filters it for entries containing "OnPlayerJoined".
-- Compares it to keywords found in local file users.txt (editable in-app)
-- Does some string manipulation to get the timestamp of each matching entry.
-- Displays matched usernames with their corresponding timestamps.
-- Optionally plays a sound when a watchlisted user joins your lobby.
+# FCH Watchlist Tool
 
-![Medal_fUWHjO6Rkr](https://github.com/user-attachments/assets/ea12703e-cf4b-40e6-b67f-5a04ab73acbb)
+Welcome to **FCH Watchlist Tool**! This open-source Python application monitors VRChat logs, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/yourusername/yourrepo/releases) tab.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Releases](#releases)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
+---
+
+## Overview
+
+**FCH Watchlist Tool** is designed for moderators and enthusiasts who need a reliable, easy-to-use tool to monitor VRChat activity. The application features real-time log monitoring, automatic username updates via the VRChat API, and a clear, organized display of user join events.
+
+---
+
+## Releases
+
+All packaged versions of **FCH Watchlist Tool** are available in the [Releases](https://github.com/yourusername/yourrepo/releases) section of this repository. Each release includes an executable file that bundles all necessary dependencies—so you don't have to install Python or any external libraries!
+
+- **Download the Latest Version:**  
+  Visit the [Releases](https://github.com/yourusername/yourrepo/releases) page and download the latest package (e.g., `FCH_Watchlist_Tool_v1.0.exe`).
+
+- **Installation:**  
+  Simply run the downloaded executable to launch the application. No additional installation steps are required!
+
+---
+
+## Features
+
+- **Real-time Log Monitoring:**  
+  Continuously monitors the VRChat logs directory and updates the display as new entries appear.
+
+- **Automatic Username Updates:**  
+  The application queries the VRChat API every 12 hours to ensure that usernames are always up-to-date.
+
+- **User List Management:**  
+  The bottom section displays a two‑column list of users and their profile URLs. Easily add or remove users using the built-in interface.
+
+- **Clear Log Display:**  
+  Log entries are shown with human-friendly relative timestamps (e.g., “5 minutes ago”) in a scrollable text view.
+
+- **Sound Notifications:**  
+  A sound plays when a new log entry is detected, so you never miss an event—provided the sound file is available.
+
+- **Open Source & Customizable:**  
+  The source code is fully available, and major formatting areas are well-commented to help you customize the UI.
+
+---
+
+## Installation
+
+### Download the Executable
+
+1. Go to the [Releases](https://github.com/yourusername/yourrepo/releases) tab.
+2. Download the latest executable package for Windows.
+
+### Manual Installation (from Source)
+
+If you prefer to run from source:
+
+1. **Clone the Repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/yourrepo.git
+   cd yourrepo
