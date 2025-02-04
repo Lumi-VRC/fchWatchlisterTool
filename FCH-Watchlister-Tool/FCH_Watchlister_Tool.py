@@ -564,7 +564,7 @@ def show_history():
         save_users_data(users)
         root.after(0, update_user_list_display)
         root.after(0, refresh_log_entries)
-        messagebox.showinfo("User Added", f"{username} has been added!")
+        #messagebox.showinfo("User Added", f"{username} has been added!")
 
 
 
