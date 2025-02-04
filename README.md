@@ -1,6 +1,6 @@
 # FCH Watchlist Tool
 
-Welcome to **FTAC Community Hub Watchlist Tool**! This open-source Python application allows you to set up a list of users that you would like the program to notify you about if they join your instance.
+Welcome to **FTAC Community Hub Watchlist Tool**! This open-source Python application allows you to set up a list of users that you would like the program to notify you about if they join your instance. It also displays your recent join history with them, to help you build a profile!
 
 This program monitors your VRChat log file, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) tab.
 
