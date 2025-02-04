@@ -1,3 +1,20 @@
+#---
+# Dev Notes (Read Me) #
+#region
+
+# I got lazy and used an AI to do some of the cosmetic formatting for me, and the mute button disappeared.
+# Trying to add it back resulted in the program imploding.
+# Trying to add a new mute function resulted in the program imploding.
+# Trying to add a simple button anywhere that leverages the existing mute button functionality, resulted in the program imploding.
+# Trying to remove the mute functionality out of frustration resulted in the program imploding.
+# Trying to remove the sound functionality out of the frustration resulted in the program imploding.
+# Hours wasted trying to fix the mute button: 4
+# I move on to greener pastures.
+
+#endregion
+#---
+# -------------------- Basic Imports, Setup, and File Pathing --------------------
+#region
 import os
 import re
 import requests
@@ -9,224 +26,195 @@ import time
 import threading
 from datetime import datetime
 from playsound import playsound
+import logging
 
-# python -m PyInstaller --onefile --windowed FCH_Watchlister_Tool.py
-# Run the above command to package the program.
-# Ensure Tkinter root is initialized once
-root = tk.Tk()
-root.withdraw()  # Hide the root window
+# Setup logging configuration 📝
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='[%(asctime)s] %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
-stop_event = threading.Event()  # Global flag for stopping the thread
+# Global stop event for threads (used to gracefully exit background threads) 🚦
+stop_event = threading.Event()
 
-# Determine file paths
-directory = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'), 'VRChat', 'VRChat')
-settings_path = os.path.join(os.path.dirname(__file__), "settings.json")
-users_file = os.path.join(os.path.dirname(__file__), "users.json")
-sound = os.path.join(os.path.dirname(__file__), "sound.mp3")
-cookies_path = os.path.join(os.path.dirname(__file__), "session_cookies.json")
-login_path = os.path.join(os.path.dirname(__file__), "login.json")
+# Determine file paths 📁
+appdata_local_low = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'), 'VRChat', 'VRChat')
+directory = appdata_local_low  # This is the VRChat logs directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
+settings_path = os.path.join(base_dir, "settings.json")
+users_file = os.path.join(base_dir, "users.json")
+sound = os.path.join(base_dir, "sound.mp3")
+cookies_path = os.path.join(base_dir, "session_cookies.json")
+login_path = os.path.join(base_dir, "login.json")
+#endregion
+#---
 
-# Function to load settings.json
+#---
+# -------------------- Settings and Login Function --------------------
+# These functions load and save settings and login credentials for the application 💾
+#region
+
 def load_settings():
+    # Loads settings from the settings.json file, and removes sensitive keys if present 🔒
     if os.path.exists(settings_path):
         with open(settings_path, 'r') as file:
-            settings = json.load(file)  # Load settings.json
+            settings = json.load(file)
     else:
-        return {}  # Return empty dictionary if file does not exist
-
-    # Check and remove login credentials if they exist
+        return {}
     keys_to_remove = ["vrchat_username", "vrchat_password"]
     modified = False
-
     for key in keys_to_remove:
         if key in settings:
-            del settings[key]  # Remove sensitive keys
+            del settings[key]
             modified = True
-
-    # Save the updated settings.json if changes were made
     if modified:
         with open(settings_path, 'w') as file:
             json.dump(settings, file, indent=4)
+    return settings
 
-    return settings  # Return the cleaned settings dictionary
+settings = load_settings()
+is_muted = settings.get("is_muted", False)  # Mute setting (True if sound is off) 🎧
 
-settings = load_settings()  # Load settings from settings.json
-is_muted = settings.get("is_muted", False)  # Default to False if not found
-
-# Function to save settings.json (excluding credentials)
 def save_settings(data):
-    if "vrchat_username" in data:
-        del data["vrchat_username"]
-    if "vrchat_password" in data:
-        del data["vrchat_password"]
-    
+    # Save settings back to the file, ensuring sensitive keys are removed 🚫🔑
+    data.pop("vrchat_username", None)
+    data.pop("vrchat_password", None)
     with open(settings_path, "w") as file:
         json.dump(data, file, indent=4)
 
-# Function to load login credentials from login.json
 def load_login():
+    # Load login credentials from login.json 🗝️
     if os.path.exists(login_path):
         with open(login_path, 'r') as file:
             return json.load(file)
-    return {}  # Return empty dictionary if login.json doesn't exist
+    return {}
 
-# Function to save login credentials to login.json
 def save_login(username, password):
-    credentials = {
-        "vrchat_username": username,
-        "vrchat_password": password
-    }
+    # Save login credentials (username & password) to login.json (sensitive data) 🔐
+    credentials = {"vrchat_username": username, "vrchat_password": password}
     with open(login_path, "w") as file:
         json.dump(credentials, file, indent=4)
 
-# Function to read mute state from JSON
 def read_mute_state():
-    settings = load_settings()  # Use the function that safely loads settings
-    return settings.get("is_muted", False)  # Default to False if missing
+    # Re-loads settings and returns the current mute state (True means muted) 🔇
+    settings = load_settings()
+    return settings.get("is_muted", False)
 
-# Function to write mute state to JSON
 def write_mute_state(state):
-    settings = load_settings()  # Load settings safely
-    settings["is_muted"] = state  # Update mute state
-
+    # Writes the mute state back to the settings file 💾
+    settings = load_settings()
+    settings["is_muted"] = state
     with open(settings_path, "w") as file:
-        json.dump(settings, file, indent=4)  # Save updated settings
+        json.dump(settings, file, indent=4)
+    logging.debug(f"Updated is_muted to {state} in settings.json")
 
-    print(f"Updated is_muted to {state} in settings.json")
-
-# Function to toggle mute state
 def toggle_mute():
+    # Toggles the mute state when the user clicks the mute button 🔄
     global is_muted
     is_muted = not is_muted
     mute_button.config(text="Unmute" if is_muted else "Mute")
-    write_mute_state(is_muted)  # This should now be updated to use load_settings()
+    write_mute_state(is_muted)
+#endregion
+#---
+    
+#---
+# -------------------- VRChat Authentication and Cookie Functions --------------------
+# These functions handle VRChat API authentication, including 2FA if required 🔑
+#region    
 
-# Authenticate VRChat
-# Function to extract user ID from a full VRChat URL or raw ID
-def extract_user_id(url_or_id):
-    match = re.search(r'usr_[a-f0-9-]+', url_or_id)
-    return match.group(0) if match else url_or_id  # Return extracted ID or input if no match
-
-# Function to authenticate with VRChat and handle 2FA if needed
-# Create a queue to store OTP input from the main thread
 otp_queue = queue.Queue()
 
 def prompt_otp(title, message, callback):
-    """Runs the OTP input dialog in the main Tkinter thread without freezing the UI, then continues authentication."""
-    
+    # Prompts the user for an OTP (One-Time Password) if required by VRChat 2FA 🔐
     def ask_otp():
         otp = simpledialog.askstring(title, message, parent=root)
         if otp:
-            root.after(0, lambda: callback(otp))  # Continue authentication in the main thread
-
-    root.after(0, ask_otp)  # Schedule OTP prompt in the main thread
+            root.after(0, lambda: callback(otp))
+    root.after(0, ask_otp)
 
 def authenticate_vrchat():
-    # Load credentials from login.json
+    # Attempts to authenticate using saved credentials; if not present, prompts the user 🛡️
     credentials = load_login()
-
     vrchat_username = credentials.get('vrchat_username', None)
     vrchat_password = credentials.get('vrchat_password', None)
-
     def ask_for_login():
-        nonlocal vrchat_username, vrchat_password  # Allows modification of outer variables
-        vrchat_username = simpledialog.askstring("Login Required", "Enter your VRChat username/email:")
-        vrchat_password = simpledialog.askstring("Login Required", "Enter your VRChat password:", show='*')
-
+        nonlocal vrchat_username, vrchat_password
+        vrchat_username = simpledialog.askstring("Login Required", "Enter your VRChat username/email:", parent=root)
+        vrchat_password = simpledialog.askstring("Login Required", "Enter your VRChat password:", show='*', parent=root)
         if vrchat_username and vrchat_password:
-            save_login(vrchat_username, vrchat_password)  # Save new credentials
-
-        # Continue authentication after getting login details
+            save_login(vrchat_username, vrchat_password)
         root.after(0, lambda: authenticate_vrchat_continue(vrchat_username, vrchat_password))
-
     if not vrchat_username or not vrchat_password:
-        root.after(0, ask_for_login)  # Ensure GUI functions run in the main thread
-        return None  # Exit function and wait for credentials
-
+        root.after(0, ask_for_login)
+        return None
     return authenticate_vrchat_continue(vrchat_username, vrchat_password)
 
 def authenticate_vrchat_continue(vrchat_username, vrchat_password):
+    # Continues authentication with VRChat's API; handles 2FA if necessary 🔑
     login_url = "https://api.vrchat.cloud/api/1/auth/user"
     headers = {'User-Agent': 'FCHWatchlister/1.0 (ftacmoderation@gmail.com)'}
-
     try:
         response = requests.get(login_url, auth=(vrchat_username, vrchat_password), headers=headers)
-        print(f"Initial login response: {response.status_code}")
-
+        logging.debug(f"Initial login response: {response.status_code}")
         if response.status_code == 200:
             auth_data = response.json()
             cookies = response.cookies
-
-            # Check if 2FA is required
             if 'requiresTwoFactorAuth' in auth_data:
                 if 'totp' in auth_data['requiresTwoFactorAuth']:
                     def handle_totp(totp):
                         verify_2fa_url = "https://api.vrchat.cloud/api/1/auth/twofactorauth/totp/verify"
                         otp_data = {"code": totp, "method": "totp"}
-
                         otp_response = requests.post(verify_2fa_url, json=otp_data, cookies=cookies, headers=headers)
-                        print(f"TOTP verification response: {otp_response.status_code}")
-
+                        logging.debug(f"TOTP verification response: {otp_response.status_code}")
                         if otp_response.status_code == 200:
                             combined_cookies = requests.cookies.RequestsCookieJar()
                             combined_cookies.update(response.cookies)
-                            combined_cookies.update(otp_response.cookies)  # Include the 2FA token
-
-                            save_cookies(combined_cookies)  # ✅ Ensure cookies get saved
-                            print(f"Successfully authenticated with TOTP: {combined_cookies.get_dict()}")
-                            root.after(0, start_username_update_thread)  # ✅ Restart username checks
+                            combined_cookies.update(otp_response.cookies)
+                            save_cookies(combined_cookies)
+                            logging.debug(f"Successfully authenticated with TOTP: {combined_cookies.get_dict()}")
+                            root.after(0, start_username_update_thread)
                         else:
                             root.after(0, lambda: messagebox.showerror("2FA Failed", "Failed to verify TOTP"))
-
                     prompt_otp("2FA Required", "Enter the TOTP from your authenticator app:", handle_totp)
-                    return None  # Stop execution and wait for OTP callback
-
+                    return None
                 elif 'emailOtp' in auth_data['requiresTwoFactorAuth']:
                     def handle_email_otp(otp):
                         verify_2fa_url = "https://api.vrchat.cloud/api/1/auth/twofactorauth/emailotp/verify"
                         otp_data = {"code": otp, "method": "emailOtp"}
-
                         otp_response = requests.post(verify_2fa_url, json=otp_data, cookies=cookies, headers=headers)
-                        print(f"OTP verification response: {otp_response.status_code}")
-
+                        logging.debug(f"Email OTP verification response: {otp_response.status_code}")
                         if otp_response.status_code == 200:
                             combined_cookies = requests.cookies.RequestsCookieJar()
                             combined_cookies.update(response.cookies)
-                            combined_cookies.update(otp_response.cookies)  # Include the 2FA token
-
-                            save_cookies(combined_cookies)  # ✅ Ensure cookies get saved
-                            print(f"Successfully authenticated with email OTP: {combined_cookies.get_dict()}")
-                            root.after(0, start_username_update_thread)  # ✅ Restart username checks
+                            combined_cookies.update(otp_response.cookies)
+                            save_cookies(combined_cookies)
+                            logging.debug(f"Successfully authenticated with email OTP: {combined_cookies.get_dict()}")
+                            root.after(0, start_username_update_thread)
                         else:
                             root.after(0, lambda: messagebox.showerror("2FA Failed", "Failed to verify email OTP"))
-
                     prompt_otp("2FA Required", "Enter the email OTP:", handle_email_otp)
-                    return None  # Stop execution and wait for OTP callback
-
+                    return None
                 else:
                     root.after(0, lambda: messagebox.showerror("2FA Method Not Supported", "The required 2FA method is not supported."))
                     return None
             else:
-                # ✅ Save cookies if 2FA is not required
-                save_cookies(response.cookies)
-                print(f"Successfully authenticated (No 2FA required): {response.cookies.get_dict()}")
-                root.after(0, start_username_update_thread)  # ✅ Restart username checks
-                return response.cookies
+                save_cookies(cookies)
+                logging.debug(f"Successfully authenticated (No 2FA required): {cookies.get_dict()}")
+                root.after(0, start_username_update_thread)
+                return cookies
         else:
             root.after(0, lambda: messagebox.showerror("Login Failed", "Failed to authenticate with VRChat API"))
             return None
-
     except requests.exceptions.RequestException as e:
         root.after(0, lambda: messagebox.showerror("Error", f"Error authenticating with VRChat API: {str(e)}"))
         return None
 
-# Function to save cookies
 def save_cookies(cookies):
     with open(cookies_path, 'w') as f:
         cookies_dict = {cookie.name: cookie.value for cookie in cookies}
         json.dump(cookies_dict, f)
 
-# Function to load cookies
 def load_cookies():
     try:
         with open(cookies_path, 'r') as f:
@@ -237,405 +225,468 @@ def load_cookies():
             return cookies
     except FileNotFoundError:
         return None
+#endregion
+#---    
+    
+# -------------------- Usernames, Log File Functions, and Results Display --------------------
+# These functions manage user data and update log display 📝
+#region    
 
-# Function to update usernames in users.json
+def extract_user_id(url_or_id):
+    # Extracts a VRChat user ID from a URL or string using a regex pattern 🔍
+    match = re.search(r'usr_[a-f0-9-]+', url_or_id)
+    return match.group(0) if match else url_or_id
+
 def update_usernames():
+    # Updates usernames by querying the VRChat API and comparing to stored names 🔄
     cookies = load_cookies()
     if cookies is None:
         cookies = authenticate_vrchat()
     if cookies is None:
-        return  # Exit if authentication fails
-
-    # Load existing usernames from users.json
+        return
     if os.path.exists(users_file):
         with open(users_file, 'r', encoding='utf-8') as f:
             users_data = json.load(f)
     else:
         users_data = {}
-
     changes_detected = False
-    updated_users = {}  # Temporary storage for updated usernames
-
-    # ✅ Iterate over a copy of items() to prevent modification errors
+    updated_users = {}
     for username, user_id in list(users_data.items()):
-        print(f"\nChecking {username} ({user_id})...")  # Show username + ID
-
-        # Fetch current display name from VRChat API
+        logging.debug(f"Checking {username} ({user_id})...")
         current_display_name = get_displayname(cookies, user_id)
         if not current_display_name:
-            print(f"❌ Failed to fetch display name for {username} ({user_id}) - Skipping.")
-            updated_users[username] = user_id  # Preserve unchanged users
-            continue  # Skip this user if we can't fetch their name
-
+            logging.debug(f"Failed to fetch display name for {username} ({user_id}) - Skipping.")
+            updated_users[username] = user_id
+            continue
         if current_display_name != username:
-            print(f"✅ Name change detected: {username} -> {current_display_name} for {user_id}")
-            updated_users[current_display_name] = user_id  # Keep ID, update username
+            logging.debug(f"Name change detected: {username} -> {current_display_name} for {user_id}")
+            updated_users[current_display_name] = user_id
             changes_detected = True
         else:
-            print(f"No changes detected for {username} ({user_id})...")
-            updated_users[username] = user_id  # Keep original user if unchanged
-
-    # Save updated names to users.json
+            logging.debug(f"No changes detected for {username} ({user_id}).")
+            updated_users[username] = user_id
     if changes_detected:
         with open(users_file, 'w', encoding='utf-8') as f:
             json.dump(updated_users, f, indent=4)
-
         root.after(0, lambda: messagebox.showinfo("Usernames Updated", "Usernames successfully updated in users.json"))
+        update_user_list_display()
 
-        # ✅ Refresh the user list UI
-        root.after(0, load_users)  # Ensure UI updates correctly
-
-# Function to get the display name from VRChat API
 def get_displayname(cookies, user_id):
+    # Fetches a user's display name from the VRChat API 🕵️‍♂️
     url = f"https://api.vrchat.cloud/api/1/users/{user_id}"
     headers = {'User-Agent': 'FCHWatchlister/1.0 (ftacmoderation@gmail.com)'}
-
     try:
         response = requests.get(url, cookies=cookies, headers=headers)
-
         if response.status_code == 200:
             try:
-                data = response.json()  # Safely parse JSON
-                display_name = data.get("displayName") or data.get("username")  # Ensure we get a valid name
-                
+                data = response.json()
+                display_name = data.get("displayName") or data.get("username")
                 if display_name:
                     return display_name
                 else:
-                    print(f"⚠️ API response missing 'displayName' for {user_id}. Full response: {data}")
+                    logging.warning(f"API response missing 'displayName' for {user_id}. Full response: {data}")
                     return None
             except requests.exceptions.JSONDecodeError:
-                print(f"❌ Failed to parse JSON for {user_id}. Response content: {response.text}")
+                logging.error(f"Failed to parse JSON for {user_id}. Response content: {response.text}")
                 return None
-
         elif response.status_code == 404:
-            print(f"❌ Error: User {user_id} not found (404). Check if the ID is correct.")
+            logging.error(f"User {user_id} not found (404). Check if the ID is correct.")
         elif response.status_code == 403:
-            print(f"⛔ Error: Forbidden access for {user_id}. You might need to re-authenticate.")
+            logging.error(f"Forbidden access for {user_id}. You might need to re-authenticate.")
         else:
-            print(f"❌ Error fetching display name for {user_id}. Response: {response.status_code}, Body: {response.text}")
-
+            logging.error(f"Error fetching display name for {user_id}. Response: {response.status_code}, Body: {response.text}")
         return None
-
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error contacting VRChat API for {user_id}: {str(e)}")
+        logging.error(f"Error contacting VRChat API for {user_id}: {str(e)}")
         return None
 
-# Function to update usernames on app start
 def start_username_update_thread():
-    thread = threading.Thread(target=update_usernames)
-    thread.daemon = True
-    thread.start()
+    # Starts the process for updating usernames (every 12 hours) 🔄
+    update_usernames()
+    def loop():
+        update_usernames()
+        root.after(43200000, loop)  # 43,200,000 ms = 12 hours ⏰
+    root.after(43200000, loop)
 
-# Function to get sorted log files
 def get_sorted_log_files(directory):
+    # Retrieves log files from the logs directory and sorts them by timestamp in filename 📂
     try:
         files = [f for f in os.listdir(directory) if f.endswith('.txt')]
         sorted_files = sorted(files, key=lambda x: re.search(r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', x).group())
         return sorted_files
     except Exception as e:
-        print(f"Error getting sorted log files: {e}")
+        logging.error(f"Error getting sorted log files: {e}")
         return []
 
-# Function to compare files and find matches
 def compare_files(log_file):
-    matches = []
+    """
+    Reads a log file and extracts entries matching "OnPlayerJoined".
+    Returns a list of tuples: (time_diff_seconds, formatted_string, raw_line). 📄
+    """
+    entries = []
     try:
-        users = load_users()  # ✅ Get a list of usernames
-
+        users = load_users_data()  # Load user data from file 📂
         with open(log_file, 'r', encoding='utf-8') as lfile:
             log_entries = [line for line in lfile if "OnPlayerJoined" in line]
-
         for line in log_entries:
-            for username in users:  # ✅ Check against usernames
-                if username in line:  # ✅ Ensure correct match
-                    # Extract timestamp and format it
-                    timestamp = line[:19].strip()
-                    date, time_str = timestamp.split(' ')
-                    time_obj = datetime.strptime(time_str, "%H:%M:%S")
-                    time_12_hour = time_obj.strftime("%I:%M:%S %p")
-                    log_datetime = datetime.strptime(timestamp, "%Y.%m.%d %H:%M:%S")
-                    current_time = datetime.now()
-                    time_diff = current_time - log_datetime
-                    days, remainder = divmod(time_diff.total_seconds(), 86400)
-                    hours, remainder = divmod(remainder, 3600)
-                    minutes, _ = divmod(remainder, 60)
-
-                    if days > 0:
-                        relative_time = f"{int(days)} days, {int(hours)} hours ago"
-                    elif hours > 0:
-                        relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
+            for username in users:
+                if username in line:
+                    timestamp_str = line[:19].strip()  # Expecting format: YYYY.MM.DD HH:MM:SS
+                    try:
+                        log_datetime = datetime.strptime(timestamp_str, "%Y.%m.%d %H:%M:%S")
+                        current_time = datetime.now()
+                        time_diff = current_time - log_datetime
+                        time_diff_seconds = time_diff.total_seconds()
+                        date, time_str = timestamp_str.split(' ')
+                        time_obj = datetime.strptime(time_str, "%H:%M:%S")
+                        time_12_hour = time_obj.strftime("%I:%M:%S %p")
+                    except Exception:
+                        date, time_12_hour, time_diff_seconds = "Unknown", "Unknown", float('inf')
+                    if time_diff_seconds == float('inf'):
+                        relative_time = "Unknown"
                     else:
-                        relative_time = f"{int(minutes)} minutes ago"
-
-                    matches.append(f'{username} - Date: {date}, Time: {time_12_hour}, {relative_time}')
-                    print(f"✅ Match found: {username}")  # Debug statement
-                    break  # Stop checking further once a match is found
+                        days, remainder = divmod(time_diff_seconds, 86400)
+                        hours, remainder = divmod(remainder, 3600)
+                        minutes, _ = divmod(remainder, 60)
+                        if days > 0:
+                            relative_time = f"{int(days)} days, {int(hours)} hours ago"
+                        elif hours > 0:
+                            relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
+                        else:
+                            relative_time = f"{int(minutes)} minutes ago"
+                    formatted_entry = f'{username} - Date: {date}, Time: {time_12_hour}, {relative_time}'
+                    entries.append((time_diff_seconds, formatted_entry, line.rstrip()))
+                    break
     except Exception as e:
-        print(f"❌ Error comparing files: {e}")
-    
-    return matches
+        logging.error(f"Error comparing file {log_file}: {e}")
+    return entries
 
-# Function to update the UI with results
-def update_ui(matches):
+def update_ui(entries):
+    """
+    Updates the log UI with entries.
+    Deduplicates and sorts them, then displays in the text widget. 🖥️
+    """
     try:
-        if matches:
-            for match in matches:
-                result_text.insert('1.0', match + "\n")
+        unique_entries = {}
+        for t, entry, raw_line in entries:
+            if entry not in unique_entries or t < unique_entries[entry][0]:
+                unique_entries[entry] = (t, raw_line)
+        deduped_entries = [(t, entry, raw_line) for entry, (t, raw_line) in unique_entries.items()]
+        sorted_entries = sorted(deduped_entries, key=lambda x: x[0])
+        result_text.config(state="normal")
+        result_text.delete('1.0', tk.END)
+        for t, entry, raw_line in sorted_entries:
+            logging.debug(f"Printing UI entry (raw): {raw_line}")
+            result_text.insert(tk.END, entry + "\n")
+        result_text.config(state="disabled")
     except Exception as e:
-        print(f"Error updating UI: {e}")
+        logging.error(f"Error updating UI: {e}")
 
-# Function to read and process old log files
-def read_old_log_files(directory):
-    """Reads past log files and updates the UI with matches."""
+def refresh_log_entries():
+    """
+    Refreshes the UI by reading the latest log file and updating the text widget.
+    """
     try:
         sorted_files = get_sorted_log_files(directory)
-        
-        for log_file in sorted_files[:-1]:  # Exclude the latest log file
-            log_file_path = os.path.join(directory, log_file)
-            matches = compare_files(log_file_path)
-            update_ui(matches)  # ✅ Ensure UI updates with old matches
-    except Exception as e:
-        print(f"❌ Error reading old log files: {e}")
-
-# Function to monitor the latest log file for changes
-def monitor_latest_log_file(directory):
-    """Monitors the latest VRChat log file for new player joins, updates UI, and plays sound if enabled."""
-    try:
-        last_checked_size = 0  # Track last read file position
-        sorted_files = get_sorted_log_files(directory)
-
         if not sorted_files:
-            print("⚠️ No log files found. Waiting...")
-            return  # Exit if no logs are available
+            return
+        latest_log_file = os.path.join(directory, sorted_files[-1])
+        entries = compare_files(latest_log_file)
+        update_ui(entries)
+    except Exception as e:
+        logging.error(f"Error refreshing log entries: {e}")
 
-        latest_log_file = os.path.join(directory, sorted_files[-1])  # Get latest log file
-        last_processed_line = ""  # Prevent processing duplicate log entries
-
-        while not stop_event.is_set():  # Run continuously unless stopped
+def monitor_latest_log_file(directory):
+    """
+    Monitors the latest log file for new entries and updates the UI.
+    Also plays a sound when a new log entry is detected (if not muted). 🔔
+    """
+    try:
+        last_checked_size = 0
+        sorted_files = get_sorted_log_files(directory)
+        if not sorted_files:
+            logging.warning("No log files found. Waiting...")
+            return
+        latest_log_file = os.path.join(directory, sorted_files[-1])
+        last_processed_line = ""
+        new_entries = []
+        while not stop_event.is_set():
             if not os.path.exists(latest_log_file):
-                print("⚠️ Log file no longer exists. Retrying...")
-                return  # Stop if the file is missing
-
-            file_size = os.path.getsize(latest_log_file)  # Get file size
-            if file_size > last_checked_size:  # If new data is available
+                logging.warning("Log file no longer exists. Retrying...")
+                return
+            file_size = os.path.getsize(latest_log_file)
+            if file_size > last_checked_size:
                 with open(latest_log_file, 'r', encoding='utf-8') as lfile:
-                    lfile.seek(last_checked_size)  # Move to last read position
-                    new_lines = lfile.readlines()  # Read new lines
-                
-                matches = []  # Store new matches
-                play_sound = False  # Flag for playing sound
-
-                users = load_users()  # Load usernames & IDs from `users.json`
-
-                if not isinstance(users, dict):  # Double-check that users.json loaded correctly
-                    print("❌ Error: users.json data is not a dictionary. Skipping processing.")
-                    return
-
-                # 🔍 DEBUG: Print loaded users to verify format
-                print(f"🔍 Loaded users: {users}")
-
-                # Filter lines containing "OnPlayerJoined"
+                    lfile.seek(last_checked_size)
+                    new_lines = lfile.readlines()
+                play_sound = False
+                users = load_users_data()
                 log_entries = [line for line in new_lines if "OnPlayerJoined" in line]
-
                 for line in log_entries:
-                    print(f"📜 Log Entry: {line.strip()}")  # Debugging output
-                    if line != last_processed_line:  # Avoid processing duplicates
-                        last_processed_line = line  # Store last processed line
-                        for username, user_id in users.items():  # Check usernames & IDs in logs
-                            if username in line or user_id in line:  # ✅ Case-sensitive username match
-                                # Extract and format timestamp
+                    if line != last_processed_line:
+                        last_processed_line = line
+                        for username, user_id in users.items():
+                            if username in line or user_id in line:
                                 timestamp_match = re.search(r'\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}', line)
                                 if timestamp_match:
                                     timestamp = timestamp_match.group()
-                                    date, time_str = timestamp.split(' ')
-                                    time_obj = datetime.strptime(time_str, "%H:%M:%S")
-                                    time_12_hour = time_obj.strftime("%I:%M:%S %p")
+                                    try:
+                                        log_datetime = datetime.strptime(timestamp, "%Y.%m.%d %H:%M:%S")
+                                        current_time = datetime.now()
+                                        time_diff = current_time - log_datetime
+                                        time_diff_seconds = time_diff.total_seconds()
+                                        date, time_str = timestamp.split(' ')
+                                        time_obj = datetime.strptime(time_str, "%H:%M:%S")
+                                        time_12_hour = time_obj.strftime("%I:%M:%S %p")
+                                    except Exception:
+                                        date, time_12_hour, time_diff_seconds = "Unknown", "Unknown", float('inf')
                                 else:
-                                    date, time_12_hour = "Unknown", "Unknown"
-
-                                # ✅ Print exact-case username match
-                                print(f"🟢 User \"{username}\" ({user_id}) has joined the lobby! (Timestamp: {time_12_hour})")
-
-                                # Append match details for UI
-                                matches.append(f'{username} - Date: {date}, Time: {time_12_hour}')
+                                    date, time_12_hour, time_diff_seconds = "Unknown", "Unknown", float('inf')
+                                if time_diff_seconds == float('inf'):
+                                    relative_time = "Unknown"
+                                else:
+                                    days, remainder = divmod(time_diff_seconds, 86400)
+                                    hours, remainder = divmod(remainder, 3600)
+                                    minutes, _ = divmod(remainder, 60)
+                                    if days > 0:
+                                        relative_time = f"{int(days)} days, {int(hours)} hours ago"
+                                    elif hours > 0:
+                                        relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
+                                    else:
+                                        relative_time = f"{int(minutes)} minutes ago"
+                                formatted_entry = f'{username} - Date: {date}, Time: {time_12_hour}, {relative_time}'
+                                new_entries.append((time_diff_seconds, formatted_entry, line.rstrip()))
                                 play_sound = True
-                                break  # Stop checking after first match
-
-                if matches:
-                    update_ui(matches)  # Update UI with new matches
-                    if play_sound and not read_mute_state():
-                        print("🔊 Playing join sound!")  # Debugging output
-                        playsound(sound)  # Play sound if not muted
-
-                last_checked_size = file_size  # Update last checked position
-            
-            time.sleep(2)  # Wait 2 seconds before checking again
+                                logging.info(f'User "{username}" ({user_id}) joined (Timestamp: {time_12_hour})')
+                                break
+                if new_entries:
+                    root.after(0, lambda: update_ui(new_entries))
+                    # Play sound if new entries are found and the sound file exists
+                    if play_sound and os.path.exists(sound):
+                        logging.info("Playing join sound!")
+                        playsound(sound)
+                last_checked_size = file_size
+            time.sleep(2)
     except Exception as e:
-        print(f"❌ Error monitoring latest log file: {e}")  # Debugging output
+        logging.error(f"Error monitoring latest log file: {e}")
 
-# Function to load users from JSON
-def load_users():
-    """Loads users.json and updates the UI without duplicate entries."""
+def load_users_data():
+    """
+    Loads users from users.json without updating the UI. 📂
+    """
     if not os.path.exists(users_file):
-        print("⚠️ users.json not found. Creating a new one...")
         with open(users_file, 'w', encoding='utf-8') as file:
-            json.dump({}, file, indent=4)  # Create an empty JSON object
-
+            json.dump({}, file, indent=4)
     try:
         with open(users_file, 'r', encoding='utf-8') as file:
-            users_data = json.load(file)  # Load JSON
-            if not isinstance(users_data, dict):  # Ensure it's a dictionary
-                print("❌ Error: users.json is not a dictionary. Resetting file.")
+            users_data = json.load(file)
+            if not isinstance(users_data, dict):
                 users_data = {}
                 with open(users_file, 'w', encoding='utf-8') as reset_file:
                     json.dump(users_data, reset_file, indent=4)
-
     except json.JSONDecodeError:
-        print("❌ Error: Invalid JSON format in users.json. Resetting file.")
         users_data = {}
         with open(users_file, 'w', encoding='utf-8') as file:
             json.dump(users_data, file, indent=4)
+    return users_data
+#endregion
+#---
 
-    # ✅ Clear the UI before inserting new data
-    users_text.delete('1.0', tk.END)
+#---
+# -------------------- User List Display (two-column layout) --------------------
+# This section is heavily commented to explain the UI formatting! 🎨
+#region
+# I didn't use an html file or something simple because...
+# I thought using a less used formatting system on an open source application would be funny.
+# And it is.
+# Lol, lmao.
 
-    # ✅ Track added usernames to prevent duplicates in UI
-    existing_users = set()
+def update_user_list_display():
+    # Clear current items in the scrollable user list frame 🧹
+    for widget in user_list_inner_frame.winfo_children():
+        widget.destroy()
+    users = load_users_data()
+    # Create a header row with three columns:
+    # - "Delete" column for delete buttons
+    # - "Username" column for user names
+    # - "Profile URL" column for VRChat profile links
+    header = tk.Frame(user_list_inner_frame, bg="#555555")
+    header.grid(row=0, column=0, columnspan=3, sticky="ew", padx=2, pady=2)
+    tk.Label(header, text="Delete", bg="#777777", fg="black", anchor="center")\
+        .grid(row=0, column=0, sticky="ew", padx=2, pady=2)  # Centered header for Delete column 😎
+    tk.Label(header, text="Username", bg="#777777", fg="black", anchor="center")\
+        .grid(row=0, column=1, sticky="ew", padx=2, pady=2)  # Centered header for Username column ✨
+    tk.Label(header, text="Profile URL", bg="#777777", fg="black", anchor="center")\
+        .grid(row=0, column=2, sticky="ew", padx=2, pady=2)  # Centered header for Profile URL column 🌐
+    
+    # Configure columns so that:
+    # - Columns 0 and 1 (Delete and Username) have the same width (uniform "colGroup")
+    # - Column 2 (Profile URL) is allowed more space (uniform "colGroup2")
+    user_list_inner_frame.grid_columnconfigure(0, weight=1, uniform="colGroup")
+    user_list_inner_frame.grid_columnconfigure(1, weight=1, uniform="colGroup")
+    user_list_inner_frame.grid_columnconfigure(2, weight=2, uniform="colGroup2")
+    
+    # For each user, add a row with:
+    # - A Delete button in column 0
+    # - The username in column 1
+    # - The profile URL in column 2
+    row_index = 1
+    for username, user_id in sorted(users.items()):
+        tk.Button(user_list_inner_frame, text="Delete", command=lambda u=username: delete_user(u),
+                  bg="#777777", fg="black", padx=5, pady=5)\
+            .grid(row=row_index, column=0, sticky="ew", padx=2, pady=2)
+        tk.Label(user_list_inner_frame, text=username, bg="#777777", fg="black", padx=5, pady=5, anchor="w")\
+            .grid(row=row_index, column=1, sticky="ew", padx=2, pady=2)
+        tk.Label(user_list_inner_frame, text=f"https://vrchat.com/home/user/{user_id}", bg="#777777", fg="black", padx=5, pady=5, anchor="w")\
+            .grid(row=row_index, column=2, sticky="ew", padx=2, pady=2)
+        row_index += 1
 
-    for username, user_id in users_data.items():
-        if username not in existing_users:
-            users_text.insert(tk.END, f"{username}: https://vrchat.com/home/user/{user_id}\n")
-            existing_users.add(username)  # ✅ Track inserted usernames
+def save_users_data(users_dict):
+    # Save user list to users.json 💾
+    with open(users_file, 'w', encoding='utf-8') as file:
+        json.dump(users_dict, file, indent=4)
 
-    print(f"✅ Users loaded into UI successfully! {len(existing_users)} users loaded.")
+def delete_user(username):
+    # Remove a user from the user list, then update the display and log entries 🗑️
+    users = load_users_data()
+    if username in users:
+        del users[username]
+        save_users_data(users)
+        update_user_list_display()
+        refresh_log_entries()
 
-    return users_data  # ✅ Return dictionary for use elsewhere
-
-# Function to save users to JSON
-def extract_user_id(url_or_id):
-    """Extracts the user ID from a full VRChat profile URL or returns the input if it's already an ID."""
-    match = re.search(r'usr_[a-f0-9-]+', url_or_id)
-    return match.group(0) if match else url_or_id  # Return extracted ID or input if no match
-
-def save_users():
-    try:
-        users_content = users_text.get('1.0', tk.END).strip()
-        users_dict = {}
-
-        for line in users_content.split("\n"):
-            if ": " in line:
-                user, url = line.split(": ", 1)
-                user_id = extract_user_id(url.strip())  # Extract the user ID from the URL or keep it
-                users_dict[user.strip()] = user_id  # Save only the ID
-
-        with open(users_file, 'w', encoding='utf-8') as file:
-            json.dump(users_dict, file, indent=4)
-
-        load_users()  # ✅ Refresh the UI so the new user appears
-        print("✅ users.json updated successfully!")
-
-    except Exception as e:
-        print(f"❌ Error saving users: {e}")
-
-# Function to add new users from input fields
 def add_user():
+    # Add a new user to the user list from the input fields ➕
     username = username_entry.get().strip()
     url = url_entry.get().strip()
-
     if username and url:
-        users_text.insert(tk.END, f"{username}: {url}\n")
+        users = load_users_data()
+        user_id = extract_user_id(url)
+        users[username] = user_id
+        save_users_data(users)
+        update_user_list_display()
         username_entry.delete(0, tk.END)
         url_entry.delete(0, tk.END)
+        refresh_log_entries()
+#endregion
+#---
 
-        save_users()  # ✅ Immediately save to users.json
-        load_users()  # ✅ Refresh the UI so the new user appears
-
+#---        
+# -------------------- Main GUI and Application Initialization --------------------
+#region
 def main():
     try:
-        global directory  # Ensure directory is accessible
-        directory = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'), 'VRChat', 'VRChat')
-        
-        read_old_log_files(directory)  # ✅ Fix: Now passes only the required argument
-        load_users()  # ✅ Load users into UI
-        
-        # ✅ Start monitoring thread with proper argument passing
-        monitor_thread = threading.Thread(target=monitor_latest_log_file, args=(directory,))
-        monitor_thread.daemon = True
+        refresh_log_entries()  # Load latest log entries into the UI
+        update_user_list_display()  # Update the user list display
+        global monitor_thread
+        monitor_thread = threading.Thread(target=monitor_latest_log_file, args=(directory,), daemon=True)
         monitor_thread.start()
     except Exception as e:
-        print(f"❌ Error in main function: {e}")
-
-# GUI Setup
-root = tk.Tk()
-root.title("VRChat Log Viewer")
-root.geometry('800x800')  # **Smaller window size for better layout**
-
-label = tk.Label(root, text="FCH Watchlister", font=("Helvetica", 14))
-label.pack(pady=10)
-
-mute_button = tk.Button(root, text="Unmute" if is_muted else "Mute", command=toggle_mute)
-mute_button.pack(padx=10, pady=5, anchor='nw')
-
-# **Reduced result text area height to prevent UI cutoff**
-result_text = scrolledtext.ScrolledText(root, wrap=tk.NONE, width=80, height=15)  # **Smaller height**
-result_text.pack(pady=10, fill=tk.BOTH, expand=True)
-
-# Add horizontal scrollbar
-h_scroll = tk.Scrollbar(result_text, orient=tk.HORIZONTAL, command=result_text.xview)
-result_text.configure(xscrollcommand=h_scroll.set)
-h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
-
-users_frame = tk.Frame(root)
-users_frame.pack(pady=5, fill=tk.X)
-
-users_label = tk.Label(users_frame, text="User list (Username: URL)", font=("Helvetica", 12))
-users_label.pack()
-
-# **Made this slightly smaller so buttons stay visible**
-users_text = scrolledtext.ScrolledText(users_frame, wrap=tk.NONE, width=60, height=7)  # **Smaller height**
-users_text.pack(pady=5, padx=10, fill=tk.BOTH)
-
-input_frame = tk.Frame(users_frame)
-input_frame.pack(pady=5)
-
-username_label = tk.Label(input_frame, text="Username:")
-username_label.pack(side=tk.LEFT, padx=5)
-username_entry = tk.Entry(input_frame, width=15)
-username_entry.pack(side=tk.LEFT, padx=5)
-
-url_label = tk.Label(input_frame, text="Profile URL:")
-url_label.pack(side=tk.LEFT, padx=5)
-url_entry = tk.Entry(input_frame, width=30)
-url_entry.pack(side=tk.LEFT, padx=5)
-
-buttons_frame = tk.Frame(users_frame)
-buttons_frame.pack(pady=5)
-
-add_button = tk.Button(buttons_frame, text="Add User", command=add_user)
-add_button.pack(side=tk.LEFT, padx=5)
-
-save_button = tk.Button(buttons_frame, text="Save", command=save_users)
-save_button.pack(side=tk.LEFT, padx=5)
-
-update_button = tk.Button(root, text="Update Usernames", command=start_username_update_thread)
-update_button.pack(pady=10)
-
-# Load users initially
-load_users()
-
-# Run the update process automatically on start
-start_username_update_thread()
-
-monitor_thread = threading.Thread(target=monitor_latest_log_file, args=(directory,))
-monitor_thread.daemon = True
-monitor_thread.start()
+        logging.error(f"Error in main function: {e}")
 
 def on_closing():
-    stop_event.set()  # Stop monitoring thread
-    root.quit()       # Quit Tkinter mainloop
-    root.destroy()    # Destroy the GUI window
-    os._exit(0)       # Force kill the script (last resort if needed)
+    # Called when the user closes the application window ❌
+    stop_event.set()
+    logging.info("Stopping threads and closing application.")
+    time.sleep(1)
+    root.destroy()
+#endregion
+#---    
+# -------------------- UI Layout and Styling --------------------
+# This section defines the overall layout and visual styling of the application 🎨
+#region    
+# More fun with UI garbage!    
 
+root = tk.Tk()
+root.title("VRChat Log Viewer")
+root.geometry('800x800')
+root.configure(bg="#333333")  # Dark grey background for the main window
+
+# Outer frame: Provides a 20px margin and a dark maroon outline around the main UI 🖼️
+main_frame = tk.Frame(root, bg="#333333", padx=20, pady=20, highlightthickness=1, highlightbackground="#800000")
+main_frame.pack(fill=tk.BOTH, expand=True)
+
+# The main_frame is divided into two rows using grid:
+# - Row 0: Log result UI (top half)
+# - Row 1: User list and add-user section (bottom half)
+main_frame.rowconfigure(0, weight=1)
+main_frame.rowconfigure(1, weight=1)
+main_frame.columnconfigure(0, weight=1)
+
+# Top area: Log result UI 📝
+top_frame = tk.Frame(main_frame, bg="#555555", highlightthickness=1, highlightbackground="#800000")
+top_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+top_frame.rowconfigure(0, weight=1)
+top_frame.columnconfigure(0, weight=1)
+
+# result_text is a scrollable text widget for displaying log entries 📃
+result_text = scrolledtext.ScrolledText(top_frame, wrap=tk.NONE, state="disabled",
+                                          bg="#555555", fg="white",
+                                          highlightthickness=1, highlightbackground="#800000")
+result_text.grid(row=0, column=0, sticky="nsew")
+h_scroll = tk.Scrollbar(top_frame, orient=tk.HORIZONTAL, command=result_text.xview,
+                        bg="#555555", highlightthickness=1, highlightbackground="#800000")
+result_text.configure(xscrollcommand=h_scroll.set)
+h_scroll.grid(row=1, column=0, sticky="ew")
+
+# Bottom area: Contains both the user list and the add-user input section 👥
+bottom_frame = tk.Frame(main_frame, bg="#555555", highlightthickness=1, highlightbackground="#800000")
+bottom_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+bottom_frame.rowconfigure(1, weight=1)
+bottom_frame.columnconfigure(0, weight=1)
+
+# Add User Input Section (centered) ✍️
+input_wrapper = tk.Frame(bottom_frame, bg="#555555")
+input_wrapper.grid(row=0, column=0, sticky="ew")
+input_wrapper.columnconfigure(0, weight=1)
+
+input_frame = tk.Frame(input_wrapper, bg="#777777", highlightthickness=1, highlightbackground="#800000")
+input_frame.grid(row=0, column=0, padx=5, pady=5)
+for i in range(4):
+    input_frame.columnconfigure(i, weight=1)
+
+# Create and place labels and entry fields with helpful comments for editing 😊
+username_label = tk.Label(input_frame, text="Username:", bg="#777777", fg="black")  # Label for username
+username_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
+username_entry = tk.Entry(input_frame, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")  # Entry for username
+username_entry.grid(row=0, column=1, padx=5, pady=5, sticky="we")
+
+url_label = tk.Label(input_frame, text="Profile URL:", bg="#777777", fg="black")  # Label for profile URL
+url_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
+url_entry = tk.Entry(input_frame, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")  # Entry for profile URL
+url_entry.grid(row=0, column=3, padx=5, pady=5, sticky="we")
+
+add_button = tk.Button(input_frame, text="Add User", command=add_user, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")
+add_button.grid(row=0, column=4, padx=5, pady=5)  # Button to add the new user
+
+# Scrollable User List Area 🗂️
+user_list_container = tk.Frame(bottom_frame, bg="#555555", highlightthickness=1, highlightbackground="#800000")
+user_list_container.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+user_list_container.rowconfigure(0, weight=1)
+user_list_container.columnconfigure(0, weight=1)
+
+user_list_canvas = tk.Canvas(user_list_container, bg="#555555", highlightthickness=0)
+user_list_canvas.grid(row=0, column=0, sticky="nsew")
+user_list_scrollbar = tk.Scrollbar(user_list_container, orient="vertical", command=user_list_canvas.yview,
+                                   bg="#555555", highlightthickness=1, highlightbackground="#800000")
+user_list_scrollbar.grid(row=0, column=1, sticky="ns")
+user_list_canvas.configure(yscrollcommand=user_list_scrollbar.set)
+
+user_list_inner_frame = tk.Frame(user_list_canvas, bg="#555555", highlightthickness=0)
+user_list_canvas.create_window((0, 0), window=user_list_inner_frame, anchor="nw")
+user_list_inner_frame.bind("<Configure>", lambda event: user_list_canvas.configure(scrollregion=user_list_canvas.bbox("all")))
+#endregion
+#---
+
+#---
+# -------------------- Initial Processes and Closing Protocol --------------------
+#region
+# Start initial processes: update user list and log entries 🔄
+update_user_list_display()
+start_username_update_thread()
+
+# Bind the closing protocol to clean up threads gracefully 🚪
 root.protocol("WM_DELETE_WINDOW", on_closing)
-
-# Run the main function automatically on startup
+main()
+root.mainloop()
+#endregion
