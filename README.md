@@ -49,7 +49,8 @@ All packaged versions of **FCH Watchlist Tool** are available in the [Releases](
 
 - **Installation:**  
   Simply run the downloaded executable to launch the application. No additional installation steps are required!
-
+  Add users by pasting in the users Username and Profile Link from the VRChat Website!
+  Alternatively, click the History button to see users who previously joined you and select "add" to add them to your watchlist!
 ---
 
 ## Features
@@ -91,3 +92,4 @@ If you prefer to run from source:
    ```bash
    git clone https://github.com/Lumi-VRC/fchWatchlisterTool.git
    cd yourrepo
+
