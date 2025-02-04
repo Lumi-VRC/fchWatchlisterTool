@@ -26,10 +26,6 @@
     <Compile Include="playsound.py" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="settings.txt" />
-    <Content Include="users.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <Interpreter Include="env\">
       <Id>env</Id>
       <Version>3.11</Version>
