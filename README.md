@@ -1,6 +1,6 @@
 # FCH Watchlist Tool
 
-Welcome to **FCH Watchlist Tool**! This open-source Python application monitors VRChat logs, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/yourusername/yourrepo/releases) tab.
+Welcome to **FCH Watchlist Tool**! This open-source Python application monitors VRChat logs, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) tab.
 
 ---
 ![python_IS2vX7Tvde](https://github.com/user-attachments/assets/3512b82a-351c-48e8-aaa5-b5b2ccf35faf)
@@ -27,10 +27,10 @@ Welcome to **FCH Watchlist Tool**! This open-source Python application monitors 
 
 ## Releases
 
-All packaged versions of **FCH Watchlist Tool** are available in the [Releases](https://github.com/yourusername/yourrepo/releases) section of this repository. Each release includes an executable file that bundles all necessary dependencies—so you don't have to install Python or any external libraries!
+All packaged versions of **FCH Watchlist Tool** are available in the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) section of this repository. Each release includes an executable file that bundles all necessary dependencies—so you don't have to install Python or any external libraries!
 
 - **Download the Latest Version:**  
-  Visit the [Releases](https://github.com/yourusername/yourrepo/releases) page and download the latest package (e.g., `FCH_Watchlist_Tool_v1.0.exe`).
+  Visit the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) page and download the latest package (e.g., `FCH_Watchlist_Tool_v1.0.exe`).
 
 - **Installation:**  
   Simply run the downloaded executable to launch the application. No additional installation steps are required!
@@ -63,7 +63,7 @@ All packaged versions of **FCH Watchlist Tool** are available in the [Releases](
 
 ### Download the Executable
 
-1. Go to the [Releases](https://github.com/yourusername/yourrepo/releases) tab.
+1. Go to the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) tab.
 2. Download the latest executable package for Windows.
 
 ### Manual Installation (from Source)
@@ -73,5 +73,5 @@ If you prefer to run from source:
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/yourrepo.git
+   git clone https://github.com/Lumi-VRC/fchWatchlisterTool.git
    cd yourrepo
