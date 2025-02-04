@@ -111,7 +111,7 @@ def toggle_mute():
 #endregion
 
 #🔑 VRChat Authentication and Cookie Functions
-#region
+#region    
 otp_queue = queue.Queue()
 
 def prompt_otp(title, message, callback):
@@ -216,8 +216,7 @@ def load_cookies():
         return None
 #endregion
 
-#📝 Usernames, Log File Functions, and Results Display
-#region
+#region 📝 Usernames, Log File Functions, and Results Display
 # These functions manage user data and update the log display 📃
 
 def extract_user_id(url_or_id):
@@ -386,77 +385,82 @@ def refresh_log_entries():
 
 def monitor_latest_log_file(directory):
     """
-    Monitors the latest log file for new entries and updates the UI.
-    Also plays a sound when a new log entry is detected (if not muted). 🔔
+    Efficiently monitors the latest log file for new entries using file seek.
     """
     global stop_event  # Ensure we refer to the global stop_event
     try:
-        last_checked_size = 0
         sorted_files = get_sorted_log_files(directory)
         if not sorted_files:
             logging.warning("No log files found. Waiting...")
             return
+        
         latest_log_file = os.path.join(directory, sorted_files[-1])
-        last_processed_line = ""
-        new_entries = []
-        while not stop_event.is_set():
-            if not os.path.exists(latest_log_file):
-                logging.warning("Log file no longer exists. Retrying...")
-                return
-            file_size = os.path.getsize(latest_log_file)
-            if file_size > last_checked_size:
-                with open(latest_log_file, 'r', encoding='utf-8') as lfile:
-                    lfile.seek(last_checked_size)
-                    new_lines = lfile.readlines()
-                play_sound = False
-                users = load_users_data()
-                log_entries = [line for line in new_lines if "OnPlayerJoined" in line]
-                for line in log_entries:
-                    if line != last_processed_line:
-                        last_processed_line = line
-                        for username, user_id in users.items():
-                            if username in line or user_id in line:
-                                timestamp_match = re.search(r'\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}', line)
-                                if timestamp_match:
-                                    timestamp = timestamp_match.group()
-                                    try:
-                                        log_datetime = datetime.strptime(timestamp, "%Y.%m.%d %H:%M:%S")
-                                        current_time = datetime.now()
-                                        time_diff = current_time - log_datetime
-                                        time_diff_seconds = time_diff.total_seconds()
-                                        date, time_str = timestamp.split(' ')
-                                        time_obj = datetime.strptime(time_str, "%H:%M:%S")
-                                        time_12_hour = time_obj.strftime("%I:%M:%S %p")
-                                    except Exception:
-                                        date, time_12_hour, time_diff_seconds = "Unknown", "Unknown", float('inf')
-                                else:
-                                    date, time_12_hour, time_diff_seconds = "Unknown", "Unknown", float('inf')
-                                if time_diff_seconds == float('inf'):
-                                    relative_time = "Unknown"
-                                else:
-                                    days, remainder = divmod(time_diff_seconds, 86400)
-                                    hours, remainder = divmod(remainder, 3600)
-                                    minutes, _ = divmod(remainder, 60)
-                                    if days > 0:
-                                        relative_time = f"{int(days)} days, {int(hours)} hours ago"
-                                    elif hours > 0:
-                                        relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
-                                    else:
-                                        relative_time = f"{int(minutes)} minutes ago"
-                                formatted_entry = f'{username} - Date: {date}, Time: {time_12_hour}, {relative_time}'
-                                new_entries.append((time_diff_seconds, formatted_entry, line.rstrip()))
-                                play_sound = True
-                                logging.info(f'User "{username}" ({user_id}) joined (Timestamp: {time_12_hour})')
-                                break
-                if new_entries:
-                    root.after(0, lambda: update_ui(new_entries))
-                    if play_sound and os.path.exists(sound):
-                        logging.info("Playing join sound!")
-                        playsound(sound)
-                last_checked_size = file_size
-            time.sleep(2)
+        last_position = 0  # Keep track of where we last read in the file
+        
+        with open(latest_log_file, 'r', encoding='utf-8') as lfile:
+            lfile.seek(0, os.SEEK_END)
+            last_position = lfile.tell()
+            
+            while not stop_event.is_set():
+                lfile.seek(last_position)
+                new_lines = lfile.readlines()
+                
+                if new_lines:
+                    last_position = lfile.tell()
+                    process_new_log_entries(new_lines)
+                time.sleep(2)
     except Exception as e:
         logging.error(f"Error monitoring latest log file: {e}")
+
+def process_new_log_entries(new_lines):
+    """
+    Processes new log entries and updates the UI accordingly.
+    Also plays a sound if a new entry is detected (and not muted). 🔔
+    """
+    new_entries = []
+    users = load_users_data()
+    play_sound = False
+    
+    for line in new_lines:
+        if "OnPlayerJoined" in line:
+            for username, user_id in users.items():
+                if username in line or user_id in line:
+                    timestamp_match = re.search(r'\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}', line)
+                    
+                    if timestamp_match:
+                        timestamp = timestamp_match.group()
+                        try:
+                            log_datetime = datetime.strptime(timestamp, "%Y.%m.%d %H:%M:%S")
+                            current_time = datetime.now()
+                            time_diff_seconds = (current_time - log_datetime).total_seconds()
+                            
+                            relative_time = format_relative_time(time_diff_seconds)
+                            formatted_entry = f'{username} - Date: {timestamp[:10]}, Time: {timestamp[11:]}, {relative_time}'
+                            
+                            new_entries.append((time_diff_seconds, formatted_entry, line.rstrip()))
+                            play_sound = True
+                            logging.info(f'User "{username}" ({user_id}) joined (Timestamp: {timestamp})')
+                        except ValueError:
+                            continue
+                    break
+    
+    if new_entries:
+        root.after(0, lambda: update_ui(new_entries))
+        if play_sound and os.path.exists(sound) and not is_muted:
+            playsound(sound)
+
+def format_relative_time(seconds):
+    """Formats a relative time string from seconds."""
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, _ = divmod(remainder, 60)
+    
+    if days > 0:
+        return f"{int(days)} days, {int(hours)} hours ago"
+    elif hours > 0:
+        return f"{int(hours)} hours, {int(minutes)} minutes ago"
+    else:
+        return f"{int(minutes)} minutes ago"
 
 def load_users_data():
     """
@@ -479,8 +483,109 @@ def load_users_data():
     return users_data
 #endregion
 
-#🎨 User List Display (Two-Column Layout)
-#region
+#region 📜 History Button Functionality
+def show_history():
+    """
+    Extracts ALL usernames and user IDs from log lines containing "OnPlayerJoined".
+    Displays them in a formatted UI similar to the user list area, with relative join times.
+    """
+    sorted_files = get_sorted_log_files(directory)
+    if not sorted_files:
+        messagebox.showinfo("History", "No log files found.")
+        return
+
+    latest_log_file = os.path.join(directory, sorted_files[-1])
+    user_data = []  # List to store usernames, profile URLs, and join times in order
+
+    print("\n🔍 DEBUG: Scanning log file for 'OnPlayerJoined' entries...")  # Debugging
+
+    with open(latest_log_file, 'r', encoding='utf-8') as file:
+        for line in file:
+            if "OnPlayerJoined" in line:
+                print(f"📜 Found: {line.strip()}")  # Debugging
+
+                timestamp_match = re.search(r'(\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2})', line)
+                username_match = re.search(r'OnPlayerJoined\s+(.+?)\s+\(', line)
+                user_id_match = re.search(r'\((usr_[a-f0-9-]+)\)', line)
+
+                if timestamp_match and username_match and user_id_match:
+                    timestamp_str = timestamp_match.group(1)
+                    log_datetime = datetime.strptime(timestamp_str, "%Y.%m.%d %H:%M:%S")
+                    time_diff_seconds = (datetime.now() - log_datetime).total_seconds()
+                    
+                    if time_diff_seconds < 60:
+                        relative_time = f"{int(time_diff_seconds)} seconds ago"
+                    elif time_diff_seconds < 3600:
+                        relative_time = f"{int(time_diff_seconds // 60)} minutes ago"
+                    elif time_diff_seconds < 86400:
+                        relative_time = f"{int(time_diff_seconds // 3600)} hours ago"
+                    else:
+                        relative_time = f"{int(time_diff_seconds // 86400)} days ago"
+
+                    username = username_match.group(1).strip()
+                    user_id = user_id_match.group(1).strip()
+                    profile_url = f"https://vrchat.com/home/user/{user_id}"
+                    user_data.append((username, user_id, profile_url, relative_time))
+
+                    print(f"✅ Extracted: {username} -> {profile_url} ({relative_time})")  # Debugging
+
+    if not user_data:
+        print("⚠️ DEBUG: No usernames were extracted!")  # Debugging
+        messagebox.showinfo("History", "No usernames found in the latest log file.")
+        return
+
+    print(f"✅ DEBUG: Extracted user data: {user_data}")  # Debugging
+
+    history_window = tk.Toplevel(root)
+    history_window.title("Player Join History")
+    history_window.geometry("740x400")
+    history_window.configure(bg="#333333")  # Match user list background
+
+    frame = tk.Frame(history_window, bg="#555555", highlightthickness=1, highlightbackground="#800000")
+    frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    canvas = tk.Canvas(frame, bg="#555555")
+    scrollbar = tk.Scrollbar(frame, orient="vertical", command=canvas.yview, bg="#777777")
+    inner_frame = tk.Frame(canvas, bg="#555555")
+
+    inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def add_user_from_history(username, user_id):
+        users = load_users_data()
+        if username in users:
+            messagebox.showinfo("Already Added", f"{username} is already in the user list.")
+            return
+        users[username] = user_id
+        save_users_data(users)
+        root.after(0, update_user_list_display)
+        root.after(0, refresh_log_entries)
+        messagebox.showinfo("User Added", f"{username} has been added!")
+
+
+
+
+    for row_index, (username, user_id, profile_url, relative_time) in enumerate(reversed(user_data), start=1):  # Maintain original order
+        add_button = tk.Button(inner_frame, text="Add", command=lambda u=username, i=user_id: add_user_from_history(u, i),
+                               bg="#777777", fg="black", padx=5, pady=5)
+        add_button.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
+
+        tk.Label(inner_frame, text=username, bg="#777777", fg="black", padx=5, pady=5, anchor="w")\
+            .grid(row=row_index, column=1, padx=5, pady=5, sticky="ew")
+        tk.Label(inner_frame, text=profile_url, bg="#777777", fg="black", padx=5, pady=5, anchor="w")\
+            .grid(row=row_index, column=2, padx=5, pady=5, sticky="ew")
+        tk.Label(inner_frame, text=relative_time, bg="#777777", fg="black", padx=5, pady=5, anchor="w")\
+            .grid(row=row_index, column=3, padx=5, pady=5, sticky="ew")
+
+    root.after(0, refresh_log_entries)
+
+#endregion
+
+#region 🎨 User List Display (Two-Column Layout)
 # This section is heavily commented to explain the UI formatting for the user list! 😎
 def update_user_list_display():
     # Clear current items in the scrollable user list frame 🧹
@@ -520,7 +625,7 @@ def update_user_list_display():
         row_index += 1
 
 def save_users_data(users_dict):
-    # Save user list to users.json 💾
+    # Save the user list to users.json 💾
     with open(users_file, 'w', encoding='utf-8') as file:
         json.dump(users_dict, file, indent=4)
 
@@ -548,8 +653,7 @@ def add_user():
         refresh_log_entries()
 #endregion
 
-#🚀 Main GUI and Application Initialization
-#region 
+#region 🚀 Main GUI and Application Initialization
 def main():
     try:
         refresh_log_entries()  # Load latest log entries into the UI
@@ -568,8 +672,7 @@ def on_closing():
     root.destroy()
 #endregion
 
-#🎨 UI Layout and Styling
-#region
+#region 🎨 UI Layout and Styling
 # This section defines the overall layout and visual styling of the application 🎨
 # Adjust these settings to change the appearance of the UI.
 root = tk.Tk()
@@ -610,6 +713,25 @@ bottom_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 bottom_frame.rowconfigure(1, weight=1)
 bottom_frame.columnconfigure(0, weight=1)
 
+user_list_frame = tk.Frame(bottom_frame, bg="#555555", highlightthickness=1, highlightbackground="#800000")
+user_list_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+canvas = tk.Canvas(user_list_frame, bg="#555555")
+scrollbar = tk.Scrollbar(user_list_frame, orient="vertical", command=canvas.yview)
+user_list_inner_frame = tk.Frame(canvas, bg="#555555")  # This is the missing variable
+
+user_list_inner_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
+
+canvas.create_window((0, 0), window=user_list_inner_frame, anchor="nw")
+canvas.configure(yscrollcommand=scrollbar.set)
+
+canvas.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
+
+
 # Add User Input Section (centered) ✍️
 input_wrapper = tk.Frame(bottom_frame, bg="#555555")
 input_wrapper.grid(row=0, column=0, sticky="ew")
@@ -617,7 +739,7 @@ input_wrapper.columnconfigure(0, weight=1)
 
 input_frame = tk.Frame(input_wrapper, bg="#777777", highlightthickness=1, highlightbackground="#800000")
 input_frame.grid(row=0, column=0, padx=5, pady=5)
-for i in range(4):
+for i in range(5):  # Updated to 5 columns to accommodate the new button
     input_frame.columnconfigure(i, weight=1)
 
 # Create labels and entry fields with detailed comments for editing 😊
@@ -631,30 +753,19 @@ url_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
 url_entry = tk.Entry(input_frame, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")  # Entry for profile URL
 url_entry.grid(row=0, column=3, padx=5, pady=5, sticky="we")
 
+# "Add User" button (already present)
 add_button = tk.Button(input_frame, text="Add User", command=add_user, bg="#777777", fg="black",
                        highlightthickness=1, highlightbackground="#800000")
-add_button.grid(row=0, column=4, padx=5, pady=5)  # Button to add the new user
+add_button.grid(row=0, column=4, padx=5, pady=5)
 
-# Scrollable User List Area 🗂️
-user_list_container = tk.Frame(bottom_frame, bg="#555555", highlightthickness=1, highlightbackground="#800000")
-user_list_container.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-user_list_container.rowconfigure(0, weight=1)
-user_list_container.columnconfigure(0, weight=1)
+# New "History" button placed next to "Add User" (column 5)
+history_button = tk.Button(input_frame, text="History", command=show_history, bg="#777777", fg="black",
+                           highlightthickness=1, highlightbackground="#800000")
 
-user_list_canvas = tk.Canvas(user_list_container, bg="#555555", highlightthickness=0)
-user_list_canvas.grid(row=0, column=0, sticky="nsew")
-user_list_scrollbar = tk.Scrollbar(user_list_container, orient="vertical", command=user_list_canvas.yview,
-                                   bg="#555555", highlightthickness=1, highlightbackground="#800000")
-user_list_scrollbar.grid(row=0, column=1, sticky="ns")
-user_list_canvas.configure(yscrollcommand=user_list_scrollbar.set)
-
-user_list_inner_frame = tk.Frame(user_list_canvas, bg="#555555", highlightthickness=0)
-user_list_canvas.create_window((0, 0), window=user_list_inner_frame, anchor="nw")
-user_list_inner_frame.bind("<Configure>", lambda event: user_list_canvas.configure(scrollregion=user_list_canvas.bbox("all")))
+history_button.grid(row=0, column=5, padx=5, pady=5)
 #endregion
 
-#🚀 Initial Processes and Closing Protocol
-#region 
+#region 🚀 Initial Processes and Closing Protocol
 # Start initial processes: update user list and log entries 🔄, and bind closing protocol 🚪
 update_user_list_display()
 start_username_update_thread()
