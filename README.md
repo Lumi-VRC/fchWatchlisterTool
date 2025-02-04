@@ -3,7 +3,8 @@
 Welcome to **FCH Watchlist Tool**! This open-source Python application monitors VRChat logs, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/yourusername/yourrepo/releases) tab.
 
 ---
-
+![python_IS2vX7Tvde](https://github.com/user-attachments/assets/3512b82a-351c-48e8-aaa5-b5b2ccf35faf)
+---
 ## Table of Contents
 
 - [Overview](#overview)
