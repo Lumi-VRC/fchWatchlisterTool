@@ -24,6 +24,8 @@ sound = os.path.join(os.path.dirname(__file__), "sound.mp3")
 cookies_path = os.path.join(os.path.dirname(__file__), "session_cookies.json")
 login_path = os.path.join(os.path.dirname(__file__), "login.json")
 
+
+
 # Function to load settings.json
 def load_settings():
     if os.path.exists(settings_path):
@@ -292,8 +294,6 @@ def update_usernames():
 
         # ✅ Refresh the user list UI
         root.after(0, load_users)  # Ensure UI updates correctly
-    else:
-        root.after(0, lambda: messagebox.showinfo("No Changes", "No changes detected in usernames."))
 
 
 # Function to get the display name from VRChat API
@@ -348,61 +348,147 @@ def get_sorted_log_files(directory):
         return []
 
 # Function to compare files and find matches
+
 def compare_files(log_file):
     matches = []
     try:
-        if os.path.exists(users_file):
-            with open(users_file, 'r', encoding='utf-8') as ufile:
-                keywords = json.load(ufile).keys()  # Get usernames from JSON
-        else:
-            keywords = []
+        users = load_users()  # ✅ Get a list of usernames
 
         with open(log_file, 'r', encoding='utf-8') as lfile:
             log_entries = [line for line in lfile if "OnPlayerJoined" in line]
 
         for line in log_entries:
-            for keyword in keywords:
-                if keyword in line:
-                    matches.append(f"User {keyword} joined!")
-                    break
+            for username in users:  # ✅ Check against usernames
+                if username in line:  # ✅ Ensure correct match
+                    # Extract timestamp and format it
+                    timestamp = line[:19].strip()
+                    date, time_str = timestamp.split(' ')
+                    time_obj = datetime.strptime(time_str, "%H:%M:%S")
+                    time_12_hour = time_obj.strftime("%I:%M:%S %p")
+                    log_datetime = datetime.strptime(timestamp, "%Y.%m.%d %H:%M:%S")
+                    current_time = datetime.now()
+                    time_diff = current_time - log_datetime
+                    days, remainder = divmod(time_diff.total_seconds(), 86400)
+                    hours, remainder = divmod(remainder, 3600)
+                    minutes, _ = divmod(remainder, 60)
+
+                    if days > 0:
+                        relative_time = f"{int(days)} days, {int(hours)} hours ago"
+                    elif hours > 0:
+                        relative_time = f"{int(hours)} hours, {int(minutes)} minutes ago"
+                    else:
+                        relative_time = f"{int(minutes)} minutes ago"
+
+                    matches.append(f'{username} - Date: {date}, Time: {time_12_hour}, {relative_time}')
+                    print(f"✅ Match found: {username}")  # Debug statement
+                    break  # Stop checking further once a match is found
     except Exception as e:
-        print(f"Error comparing files: {e}")
+        print(f"❌ Error comparing files: {e}")
+    
     return matches
 
 # Function to update the UI with results
 def update_ui(matches):
-    if matches:
-        for match in matches:
-            result_text.insert('1.0', match + "\n")
+    try:
+        if matches:
+            for match in matches:
+                result_text.insert('1.0', match + "\n")
+    except Exception as e:
+        print(f"Error updating UI: {e}")
 
 # Function to read and process old log files
-def read_old_log_files():
+def read_old_log_files(directory):
+    """Reads past log files and updates the UI with matches."""
     try:
         sorted_files = get_sorted_log_files(directory)
-        for log_file in sorted_files[:-1]:  
+        
+        for log_file in sorted_files[:-1]:  # Exclude the latest log file
             log_file_path = os.path.join(directory, log_file)
             matches = compare_files(log_file_path)
-            update_ui(matches)
+            update_ui(matches)  # ✅ Ensure UI updates with old matches
     except Exception as e:
-        print(f"Error reading old log files: {e}")
+        print(f"❌ Error reading old log files: {e}")
+
 
 # Function to monitor the latest log file for changes
-def monitor_latest_log_file():
+def monitor_latest_log_file(directory):
+    """Monitors the latest VRChat log file for new player joins, updates UI, and plays sound if enabled."""
     try:
-        latest_log_file = os.path.join(directory, get_sorted_log_files(directory)[-1])  
-        while not stop_event.is_set():  # Check if stop is triggered
-            matches = compare_files(latest_log_file)
-            if matches:
-                update_ui(matches)
-                if not is_muted:
-                    playsound(sound)
-            time.sleep(2)
+        last_checked_size = 0  # Track last read file position
+        sorted_files = get_sorted_log_files(directory)
+
+        if not sorted_files:
+            print("⚠️ No log files found. Waiting...")
+            return  # Exit if no logs are available
+
+        latest_log_file = os.path.join(directory, sorted_files[-1])  # Get latest log file
+        last_processed_line = ""  # Prevent processing duplicate log entries
+
+        while not stop_event.is_set():  # Run continuously unless stopped
+            if not os.path.exists(latest_log_file):
+                print("⚠️ Log file no longer exists. Retrying...")
+                return  # Stop if the file is missing
+
+            file_size = os.path.getsize(latest_log_file)  # Get file size
+            if file_size > last_checked_size:  # If new data is available
+                with open(latest_log_file, 'r', encoding='utf-8') as lfile:
+                    lfile.seek(last_checked_size)  # Move to last read position
+                    new_lines = lfile.readlines()  # Read new lines
+                
+                matches = []  # Store new matches
+                play_sound = False  # Flag for playing sound
+
+                users = load_users()  # Load usernames & IDs from `users.json`
+
+                if not isinstance(users, dict):  # Double-check that users.json loaded correctly
+                    print("❌ Error: users.json data is not a dictionary. Skipping processing.")
+                    return
+
+                # 🔍 DEBUG: Print loaded users to verify format
+                print(f"🔍 Loaded users: {users}")
+
+                # Filter lines containing "OnPlayerJoined"
+                log_entries = [line for line in new_lines if "OnPlayerJoined" in line]
+
+                for line in log_entries:
+                    print(f"📜 Log Entry: {line.strip()}")  # Debugging output
+                    if line != last_processed_line:  # Avoid processing duplicates
+                        last_processed_line = line  # Store last processed line
+                        for username, user_id in users.items():  # Check usernames & IDs in logs
+                            if username in line or user_id in line:  # ✅ Case-sensitive username match
+                                # Extract and format timestamp
+                                timestamp_match = re.search(r'\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}', line)
+                                if timestamp_match:
+                                    timestamp = timestamp_match.group()
+                                    date, time_str = timestamp.split(' ')
+                                    time_obj = datetime.strptime(time_str, "%H:%M:%S")
+                                    time_12_hour = time_obj.strftime("%I:%M:%S %p")
+                                else:
+                                    date, time_12_hour = "Unknown", "Unknown"
+
+                                # ✅ Print exact-case username match
+                                print(f"🟢 User \"{username}\" ({user_id}) has joined the lobby! (Timestamp: {time_12_hour})")
+
+                                # Append match details for UI
+                                matches.append(f'{username} - Date: {date}, Time: {time_12_hour}')
+                                play_sound = True
+                                break  # Stop checking after first match
+
+                if matches:
+                    update_ui(matches)  # Update UI with new matches
+                    if play_sound and not read_mute_state():
+                        print("🔊 Playing join sound!")  # Debugging output
+                        playsound(sound)  # Play sound if not muted
+
+                last_checked_size = file_size  # Update last checked position
+            
+            time.sleep(2)  # Wait 2 seconds before checking again
     except Exception as e:
-        print(f"Error monitoring latest log file: {e}")
+        print(f"❌ Error monitoring latest log file: {e}")  # Debugging output
 
 # Function to load users from JSON
 def load_users():
-    """Loads users.json and updates the UI. If it doesn't exist, create an empty file."""
+    """Loads users.json and updates the UI without duplicate entries."""
     if not os.path.exists(users_file):
         print("⚠️ users.json not found. Creating a new one...")
         with open(users_file, 'w', encoding='utf-8') as file:
@@ -410,24 +496,33 @@ def load_users():
 
     try:
         with open(users_file, 'r', encoding='utf-8') as file:
-            data = json.load(file)  # Load the user data
-            print("✅ Loaded users from users.json:", data)  # Debugging output
+            users_data = json.load(file)  # Load JSON
+            if not isinstance(users_data, dict):  # Ensure it's a dictionary
+                print("❌ Error: users.json is not a dictionary. Resetting file.")
+                users_data = {}
+                with open(users_file, 'w', encoding='utf-8') as reset_file:
+                    json.dump(users_data, reset_file, indent=4)
+
     except json.JSONDecodeError:
         print("❌ Error: Invalid JSON format in users.json. Resetting file.")
-        data = {}
+        users_data = {}
         with open(users_file, 'w', encoding='utf-8') as file:
-            json.dump(data, file, indent=4)
+            json.dump(users_data, file, indent=4)
 
-    # ✅ Clear the users_text widget before inserting new data
+    # ✅ Clear the UI before inserting new data
     users_text.delete('1.0', tk.END)
 
-    # ✅ Populate the users_text widget with loaded data
-    for username, user_id in data.items():
-        users_text.insert(tk.END, f"{username}: https://vrchat.com/home/user/{user_id}\n")
+    # ✅ Track added usernames to prevent duplicates in UI
+    existing_users = set()
 
-    print("✅ Users loaded into UI successfully!")
+    for username, user_id in users_data.items():
+        if username not in existing_users:
+            users_text.insert(tk.END, f"{username}: https://vrchat.com/home/user/{user_id}\n")
+            existing_users.add(username)  # ✅ Track inserted usernames
 
+    print(f"✅ Users loaded into UI successfully! {len(existing_users)} users loaded.")
 
+    return users_data  # ✅ Return dictionary for use elsewhere
 
 
 # Function to save users to JSON
@@ -450,6 +545,7 @@ def save_users():
         with open(users_file, 'w', encoding='utf-8') as file:
             json.dump(users_dict, file, indent=4)
 
+        load_users()  # ✅ Refresh the UI so the new user appears
         print("✅ users.json updated successfully!")
 
     except Exception as e:
@@ -469,6 +565,22 @@ def add_user():
         save_users()  # ✅ Immediately save to users.json
         load_users()  # ✅ Refresh the UI so the new user appears
 
+def main():
+    try:
+        global directory  # Ensure directory is accessible
+        directory = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'), 'VRChat', 'VRChat')
+        
+        read_old_log_files(directory)  # ✅ Fix: Now passes only the required argument
+        load_users()  # ✅ Load users into UI
+        
+        # ✅ Start monitoring thread with proper argument passing
+        monitor_thread = threading.Thread(target=monitor_latest_log_file, args=(directory,))
+        monitor_thread.daemon = True
+        monitor_thread.start()
+    except Exception as e:
+        print(f"❌ Error in main function: {e}")
+
+
 
 # GUI Setup
 root = tk.Tk()
@@ -484,6 +596,11 @@ mute_button.pack(padx=10, pady=5, anchor='nw')
 # **Reduced result text area height to prevent UI cutoff**
 result_text = scrolledtext.ScrolledText(root, wrap=tk.NONE, width=80, height=15)  # **Smaller height**
 result_text.pack(pady=10, fill=tk.BOTH, expand=True)
+
+# Add horizontal scrollbar
+h_scroll = tk.Scrollbar(result_text, orient=tk.HORIZONTAL, command=result_text.xview)
+result_text.configure(xscrollcommand=h_scroll.set)
+h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
 
 users_frame = tk.Frame(root)
 users_frame.pack(pady=5, fill=tk.X)
@@ -526,7 +643,8 @@ load_users()
 # Run the update process automatically on start
 start_username_update_thread()
 
-monitor_thread = threading.Thread(target=monitor_latest_log_file, daemon=True)
+monitor_thread = threading.Thread(target=monitor_latest_log_file, args=(directory,))
+monitor_thread.daemon = True
 monitor_thread.start()
 
 def on_closing():
@@ -536,5 +654,8 @@ def on_closing():
     os._exit(0)       # Force kill the script (last resort if needed)
 
 root.protocol("WM_DELETE_WINDOW", on_closing)
+
+# Run the main function automatically on startup
+main()
 
 root.mainloop()
