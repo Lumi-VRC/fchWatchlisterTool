@@ -7,7 +7,9 @@ This program monitors your VRChat log file, updates usernames automatically, and
 Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 
 **!! DEBUG LOGGING MUST BE TURNED ON IN YOUR IN-GAME SETTINGS. !!**
+
 **!! DEBUG LOGGING MUST BE TURNED ON IN YOUR IN-GAME SETTINGS. !!**
+
 **!! DEBUG LOGGING MUST BE TURNED ON IN YOUR IN-GAME SETTINGS. !!**
 
 ---
