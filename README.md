@@ -12,6 +12,11 @@ Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 
 **!! DEBUG LOGGING MUST BE TURNED ON IN YOUR IN-GAME SETTINGS. !!**
 
+
+  Add users by pasting in the users Username and Profile Link from the VRChat Website!
+  Alternatively, click the History button to see users who previously joined you and select "add" to add them to your watchlist!
+
+
 ---
 <img width="590" alt="image" src="https://github.com/user-attachments/assets/b371c287-9b1e-4b82-a92c-5196d673c509" />
 
@@ -49,8 +54,6 @@ All packaged versions of **FCH Watchlist Tool** are available in the [Releases](
 
 - **Installation:**  
   Simply run the downloaded executable to launch the application. No additional installation steps are required!
-  Add users by pasting in the users Username and Profile Link from the VRChat Website!
-  Alternatively, click the History button to see users who previously joined you and select "add" to add them to your watchlist!
 ---
 
 ## Features
