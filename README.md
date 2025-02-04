@@ -56,6 +56,7 @@ All packaged versions of **FCH Watchlist Tool** are available in the [Releases](
 
 - **Automatic Username Updates:**  
   The application queries the VRChat API every 12 hours to ensure that usernames are always up-to-date.
+  This is done by logging into the app. Your login is stored locally at %APPDATA%/Roaming/FCHWatchlistTool, along with your user list and session cookies.
 
 - **User List Management:**  
   The bottom section displays a two‑column list of users and their profile URLs. Easily add or remove users using the built-in interface.
