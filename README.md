@@ -27,8 +27,8 @@ Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 
 ## Overview
 
-**FCH Watchlist Tool** is designed for moderators who would like to build 'problem user' lists for themselves to enhance their ability to protect their community.
-This program takes a user-inputted list of users and profile links, and scans their latest log file for OnJoined events, notifying the user if any new ones pop up with the included sound.mp3 + text notification.
+The **FCH Watchlist Tool** is designed for moderators who would like to build 'problem user' lists for themselves to enhance their ability to protect their community.
+This program takes a user-inputted list of users and profile links, and scans the users latest log file for OnJoined events, notifying the user if any new ones pop up with the included sound.mp3 + text notification.
 ---
 
 ## Releases
