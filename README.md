@@ -31,11 +31,6 @@ Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 - [Releases](#releases)
 - [Features](#features)
 - [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
 
 ---
 
