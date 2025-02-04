@@ -1,19 +1,4 @@
-#---
-# Dev Notes (Read Me) #
-#region
-
-# I got lazy and used an AI to do some of the cosmetic formatting for me, and the mute button disappeared.
-# Trying to add it back resulted in the program imploding.
-# Trying to add a new mute function resulted in the program imploding.
-# Trying to add a simple button anywhere that leverages the existing mute button functionality, resulted in the program imploding.
-# Trying to remove the mute functionality out of frustration resulted in the program imploding.
-# Trying to remove the sound functionality out of the frustration resulted in the program imploding.
-# Hours wasted trying to fix the mute button: 4
-# I move on to greener pastures.
-
-#endregion
-#---
-# -------------------- Basic Imports, Setup, and File Pathing --------------------
+#📦 Imports and Logging Setup
 #region
 import os
 import re
@@ -34,31 +19,39 @@ logging.basicConfig(
     format='[%(asctime)s] %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+#endregion
 
+#🔧 Global Variables and Data Storage Paths
+#region
 # Global stop event for threads (used to gracefully exit background threads) 🚦
 stop_event = threading.Event()
 
-# Determine file paths 📁
+# Determine the directory for storing user data in APPDATA so that it remains writable
+data_dir = os.path.join(os.getenv("APPDATA"), "FCHWatchlistTool")
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+    logging.debug("Created data directory at: " + data_dir)
+
+# VRChat logs directory remains unchanged
 appdata_local_low = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'), 'VRChat', 'VRChat')
 directory = appdata_local_low  # This is the VRChat logs directory
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(base_dir, "settings.json")
-users_file = os.path.join(base_dir, "users.json")
+# Store user-editable data in the dedicated data directory in APPDATA
+settings_path = os.path.join(data_dir, "settings.json")
+users_file = os.path.join(data_dir, "users.json")
+cookies_path = os.path.join(data_dir, "session_cookies.json")
+login_path = os.path.join(data_dir, "login.json")
+# Sound file remains in the base directory (read-only resource)
 sound = os.path.join(base_dir, "sound.mp3")
-cookies_path = os.path.join(base_dir, "session_cookies.json")
-login_path = os.path.join(base_dir, "login.json")
 #endregion
-#---
 
-#---
-# -------------------- Settings and Login Function --------------------
-# These functions load and save settings and login credentials for the application 💾
+#🔧 Settings and Login Functions
 #region
-
 def load_settings():
-    # Loads settings from the settings.json file, and removes sensitive keys if present 🔒
+    # Loads settings from settings.json, removing sensitive keys if present 🔒
     if os.path.exists(settings_path):
-        with open(settings_path, 'r') as file:
+        with open(settings_path, 'r', encoding='utf-8') as file:
             settings = json.load(file)
     else:
         return {}
@@ -69,43 +62,43 @@ def load_settings():
             del settings[key]
             modified = True
     if modified:
-        with open(settings_path, 'w') as file:
+        with open(settings_path, 'w', encoding='utf-8') as file:
             json.dump(settings, file, indent=4)
     return settings
 
 settings = load_settings()
-is_muted = settings.get("is_muted", False)  # Mute setting (True if sound is off) 🎧
+is_muted = settings.get("is_muted", False)  # Mute setting (True means sound is off) 🎧
 
 def save_settings(data):
-    # Save settings back to the file, ensuring sensitive keys are removed 🚫🔑
+    # Saves settings to settings.json, ensuring sensitive keys are removed 🚫🔑
     data.pop("vrchat_username", None)
     data.pop("vrchat_password", None)
-    with open(settings_path, "w") as file:
+    with open(settings_path, "w", encoding='utf-8') as file:
         json.dump(data, file, indent=4)
 
 def load_login():
-    # Load login credentials from login.json 🗝️
+    # Loads login credentials from login.json 🗝️
     if os.path.exists(login_path):
-        with open(login_path, 'r') as file:
+        with open(login_path, 'r', encoding='utf-8') as file:
             return json.load(file)
     return {}
 
 def save_login(username, password):
-    # Save login credentials (username & password) to login.json (sensitive data) 🔐
+    # Saves login credentials (sensitive data) to login.json 🔐
     credentials = {"vrchat_username": username, "vrchat_password": password}
-    with open(login_path, "w") as file:
+    with open(login_path, "w", encoding='utf-8') as file:
         json.dump(credentials, file, indent=4)
 
 def read_mute_state():
-    # Re-loads settings and returns the current mute state (True means muted) 🔇
+    # Reloads settings and returns the current mute state (True means muted) 🔇
     settings = load_settings()
     return settings.get("is_muted", False)
 
 def write_mute_state(state):
-    # Writes the mute state back to the settings file 💾
+    # Writes the mute state back to settings.json 💾
     settings = load_settings()
     settings["is_muted"] = state
-    with open(settings_path, "w") as file:
+    with open(settings_path, "w", encoding='utf-8') as file:
         json.dump(settings, file, indent=4)
     logging.debug(f"Updated is_muted to {state} in settings.json")
 
@@ -116,13 +109,9 @@ def toggle_mute():
     mute_button.config(text="Unmute" if is_muted else "Mute")
     write_mute_state(is_muted)
 #endregion
-#---
-    
-#---
-# -------------------- VRChat Authentication and Cookie Functions --------------------
-# These functions handle VRChat API authentication, including 2FA if required 🔑
-#region    
 
+#🔑 VRChat Authentication and Cookie Functions
+#region
 otp_queue = queue.Queue()
 
 def prompt_otp(title, message, callback):
@@ -226,19 +215,18 @@ def load_cookies():
     except FileNotFoundError:
         return None
 #endregion
-#---    
-    
-# -------------------- Usernames, Log File Functions, and Results Display --------------------
-# These functions manage user data and update log display 📝
-#region    
+
+#📝 Usernames, Log File Functions, and Results Display
+#region
+# These functions manage user data and update the log display 📃
 
 def extract_user_id(url_or_id):
-    # Extracts a VRChat user ID from a URL or string using a regex pattern 🔍
+    # Extracts a VRChat user ID from a URL or string using regex 🔍
     match = re.search(r'usr_[a-f0-9-]+', url_or_id)
     return match.group(0) if match else url_or_id
 
 def update_usernames():
-    # Updates usernames by querying the VRChat API and comparing to stored names 🔄
+    # Updates usernames by querying the VRChat API and comparing stored names 🔄
     cookies = load_cookies()
     if cookies is None:
         cookies = authenticate_vrchat()
@@ -301,15 +289,15 @@ def get_displayname(cookies, user_id):
         return None
 
 def start_username_update_thread():
-    # Starts the process for updating usernames (every 12 hours) 🔄
+    # Starts the process for updating usernames every 12 hours ⏰
     update_usernames()
     def loop():
         update_usernames()
-        root.after(43200000, loop)  # 43,200,000 ms = 12 hours ⏰
+        root.after(43200000, loop)  # 43,200,000 ms = 12 hours
     root.after(43200000, loop)
 
 def get_sorted_log_files(directory):
-    # Retrieves log files from the logs directory and sorts them by timestamp in filename 📂
+    # Retrieves and sorts log files by timestamp in the filename 📂
     try:
         files = [f for f in os.listdir(directory) if f.endswith('.txt')]
         sorted_files = sorted(files, key=lambda x: re.search(r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', x).group())
@@ -364,7 +352,7 @@ def compare_files(log_file):
 def update_ui(entries):
     """
     Updates the log UI with entries.
-    Deduplicates and sorts them, then displays in the text widget. 🖥️
+    Deduplicates and sorts them, then displays them in the text widget. 🖥️
     """
     try:
         unique_entries = {}
@@ -401,6 +389,7 @@ def monitor_latest_log_file(directory):
     Monitors the latest log file for new entries and updates the UI.
     Also plays a sound when a new log entry is detected (if not muted). 🔔
     """
+    global stop_event  # Ensure we refer to the global stop_event
     try:
         last_checked_size = 0
         sorted_files = get_sorted_log_files(directory)
@@ -461,7 +450,6 @@ def monitor_latest_log_file(directory):
                                 break
                 if new_entries:
                     root.after(0, lambda: update_ui(new_entries))
-                    # Play sound if new entries are found and the sound file exists
                     if play_sound and os.path.exists(sound):
                         logging.info("Playing join sound!")
                         playsound(sound)
@@ -490,17 +478,10 @@ def load_users_data():
             json.dump(users_data, file, indent=4)
     return users_data
 #endregion
-#---
 
-#---
-# -------------------- User List Display (two-column layout) --------------------
-# This section is heavily commented to explain the UI formatting! 🎨
+#🎨 User List Display (Two-Column Layout)
 #region
-# I didn't use an html file or something simple because...
-# I thought using a less used formatting system on an open source application would be funny.
-# And it is.
-# Lol, lmao.
-
+# This section is heavily commented to explain the UI formatting for the user list! 😎
 def update_user_list_display():
     # Clear current items in the scrollable user list frame 🧹
     for widget in user_list_inner_frame.winfo_children():
@@ -520,16 +501,13 @@ def update_user_list_display():
         .grid(row=0, column=2, sticky="ew", padx=2, pady=2)  # Centered header for Profile URL column 🌐
     
     # Configure columns so that:
-    # - Columns 0 and 1 (Delete and Username) have the same width (uniform "colGroup")
-    # - Column 2 (Profile URL) is allowed more space (uniform "colGroup2")
+    # - Columns 0 and 1 share the same width (uniform "colGroup")
+    # - Column 2 is given more space (uniform "colGroup2")
     user_list_inner_frame.grid_columnconfigure(0, weight=1, uniform="colGroup")
     user_list_inner_frame.grid_columnconfigure(1, weight=1, uniform="colGroup")
     user_list_inner_frame.grid_columnconfigure(2, weight=2, uniform="colGroup2")
     
-    # For each user, add a row with:
-    # - A Delete button in column 0
-    # - The username in column 1
-    # - The profile URL in column 2
+    # For each user, add a row with a Delete button, username, and profile URL 👥
     row_index = 1
     for username, user_id in sorted(users.items()):
         tk.Button(user_list_inner_frame, text="Delete", command=lambda u=username: delete_user(u),
@@ -547,7 +525,7 @@ def save_users_data(users_dict):
         json.dump(users_dict, file, indent=4)
 
 def delete_user(username):
-    # Remove a user from the user list, then update the display and log entries 🗑️
+    # Remove a user from the list, update the display, and refresh log entries 🗑️
     users = load_users_data()
     if username in users:
         del users[username]
@@ -556,7 +534,7 @@ def delete_user(username):
         refresh_log_entries()
 
 def add_user():
-    # Add a new user to the user list from the input fields ➕
+    # Add a new user from the input fields ➕
     username = username_entry.get().strip()
     url = url_entry.get().strip()
     if username and url:
@@ -569,11 +547,9 @@ def add_user():
         url_entry.delete(0, tk.END)
         refresh_log_entries()
 #endregion
-#---
 
-#---        
-# -------------------- Main GUI and Application Initialization --------------------
-#region
+#🚀 Main GUI and Application Initialization
+#region 
 def main():
     try:
         refresh_log_entries()  # Load latest log entries into the UI
@@ -585,18 +561,17 @@ def main():
         logging.error(f"Error in main function: {e}")
 
 def on_closing():
-    # Called when the user closes the application window ❌
+    # Called when the application window is closed ❌
     stop_event.set()
     logging.info("Stopping threads and closing application.")
     time.sleep(1)
     root.destroy()
 #endregion
-#---    
-# -------------------- UI Layout and Styling --------------------
-# This section defines the overall layout and visual styling of the application 🎨
-#region    
-# More fun with UI garbage!    
 
+#🎨 UI Layout and Styling
+#region
+# This section defines the overall layout and visual styling of the application 🎨
+# Adjust these settings to change the appearance of the UI.
 root = tk.Tk()
 root.title("VRChat Log Viewer")
 root.geometry('800x800')
@@ -619,7 +594,7 @@ top_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 top_frame.rowconfigure(0, weight=1)
 top_frame.columnconfigure(0, weight=1)
 
-# result_text is a scrollable text widget for displaying log entries 📃
+# result_text: A scrollable text widget for displaying log entries 📃
 result_text = scrolledtext.ScrolledText(top_frame, wrap=tk.NONE, state="disabled",
                                           bg="#555555", fg="white",
                                           highlightthickness=1, highlightbackground="#800000")
@@ -645,7 +620,7 @@ input_frame.grid(row=0, column=0, padx=5, pady=5)
 for i in range(4):
     input_frame.columnconfigure(i, weight=1)
 
-# Create and place labels and entry fields with helpful comments for editing 😊
+# Create labels and entry fields with detailed comments for editing 😊
 username_label = tk.Label(input_frame, text="Username:", bg="#777777", fg="black")  # Label for username
 username_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 username_entry = tk.Entry(input_frame, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")  # Entry for username
@@ -656,7 +631,8 @@ url_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
 url_entry = tk.Entry(input_frame, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")  # Entry for profile URL
 url_entry.grid(row=0, column=3, padx=5, pady=5, sticky="we")
 
-add_button = tk.Button(input_frame, text="Add User", command=add_user, bg="#777777", fg="black", highlightthickness=1, highlightbackground="#800000")
+add_button = tk.Button(input_frame, text="Add User", command=add_user, bg="#777777", fg="black",
+                       highlightthickness=1, highlightbackground="#800000")
 add_button.grid(row=0, column=4, padx=5, pady=5)  # Button to add the new user
 
 # Scrollable User List Area 🗂️
@@ -676,16 +652,12 @@ user_list_inner_frame = tk.Frame(user_list_canvas, bg="#555555", highlightthickn
 user_list_canvas.create_window((0, 0), window=user_list_inner_frame, anchor="nw")
 user_list_inner_frame.bind("<Configure>", lambda event: user_list_canvas.configure(scrollregion=user_list_canvas.bbox("all")))
 #endregion
-#---
 
-#---
-# -------------------- Initial Processes and Closing Protocol --------------------
-#region
-# Start initial processes: update user list and log entries 🔄
+#🚀 Initial Processes and Closing Protocol
+#region 
+# Start initial processes: update user list and log entries 🔄, and bind closing protocol 🚪
 update_user_list_display()
 start_username_update_thread()
-
-# Bind the closing protocol to clean up threads gracefully 🚪
 root.protocol("WM_DELETE_WINDOW", on_closing)
 main()
 root.mainloop()
