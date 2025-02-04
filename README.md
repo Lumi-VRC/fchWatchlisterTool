@@ -1,6 +1,7 @@
 # FCH Watchlist Tool
 
 Welcome to **FTAC Community Hub Watchlist Tool**! This open-source Python application monitors VRChat logs, updates usernames automatically, and displays events in a user-friendly interface. Pre-built packages (EXE files) for Windows are available for download in the [Releases](https://github.com/Lumi-VRC/fchWatchlisterTool/releases) tab.
+
 Created by "- Lumine -", current owner of Furry Talk and Chill.
 
 ---
