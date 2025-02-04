@@ -15,7 +15,10 @@ Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 ---
 <img width="590" alt="image" src="https://github.com/user-attachments/assets/b371c287-9b1e-4b82-a92c-5196d673c509" />
 
-![python_IS2vX7Tvde](https://github.com/user-attachments/assets/3512b82a-351c-48e8-aaa5-b5b2ccf35faf)
+
+![devenv_kkPr2Xzn31](https://github.com/user-attachments/assets/b73461f5-03ab-4207-a30c-220f0ba4d426)
+
+
 ---
 ## Table of Contents
 
