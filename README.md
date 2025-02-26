@@ -42,6 +42,8 @@ This program takes a user-inputted list of users and profile links, and scans th
 
 It requires a login in order to access VRChat's API to update peoples names if they try to change them. Your login information is stored in plaintext in %APPDATA% and is not shared, feel free to pop the source code into a GPT or read it yourself.
 
+If you scan with VirusTotal, it will flag from 1-2 providers due to the lack of a .dll certificate. I'm not paying for one, since this program is open source.
+
 The tool also allows you to view people who were recently in your instance in order to quickly add them to your watchlist.
 
 ---
