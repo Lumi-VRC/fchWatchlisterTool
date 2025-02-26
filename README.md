@@ -37,8 +37,11 @@ Created by "- Lumine -", current co-owner of Furry Talk and Chill.
 ## Overview
 
 The **FCH Watchlist Tool** is designed for moderators who would like to build 'problem user' lists for themselves to enhance their ability to protect their community.
+
 This program takes a user-inputted list of users and profile links, and scans the users latest log file for OnJoined events, notifying the user if any new ones pop up with the included sound.mp3 + text notification.
+
 It requires a login in order to access VRChat's API to update peoples names if they try to change them. Your login information is stored in plaintext in %APPDATA% and is not shared, feel free to pop the source code into a GPT or read it yourself.
+
 ---
 
 ## Releases
